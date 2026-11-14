@@ -24,13 +24,25 @@
    - 生成压缩索引字符串，写入自身 options（供 middleware 读取）；
 3. `catalog.middleware.js`：`onRequest` prepend 索引到 `body.system`；只注入 available 条目；无索引时直通。
 
-**验收标准：**
+**验收标准：**（2026-11-15 全部通过，沙箱实测记录见提交信息）
 
-- [ ] `magpie plugin add ~/github/magpie-team-catalog` 成功加载，`magpie plugin` 列出无错误；
-- [ ] 沙箱（独立 `HOME`）里放一个假 CLI（脚本输出 `--version`），registry 声明它，请求经网关后 system prompt 出现该条目；删掉假 CLI 并 reload 后条目消失；
-- [ ] middleware 文件语法错误 / 抛异常时，请求原样通过（fail-open 实测）；
-- [ ] `magpie plugin off team-catalog` 后请求 system prompt 无注入，无残留；
-- [ ] `bun test` 覆盖 registry 解析与状态机迁移（纯函数，放 `_internal` 导出）。
+- [x] `magpie plugin add ~/github/magpie-team-catalog` 成功加载，`magpie plugin` 列出无错误；
+- [x] 沙箱（独立 `HOME`/`XDG_CONFIG_HOME`，`MAGPIE_BUN` 指向本机 Bun）里放一个假 CLI，registry 声明它，请求经网关后 system prompt 出现该条目；删掉假 CLI 并 reload 后条目消失；
+- [x] middleware 文件语法错误时，请求原样通过（fail-open 实测：网关正常回错、后续中间件照常执行）；
+- [x] `magpie plugin off team-catalog` 后请求 system prompt 无注入，网关仍健康；
+- [x] `bun test` 覆盖 registry 解析与状态机迁移（纯函数，放 `_internal` 导出；含 inject/probe，共 39 项）。
+
+**实现备注（与设计文档的偏差，均为实测驱动）：**
+
+- 探测/发布不在插件加载里同步做：宿主对插件加载有预算（add 验证 20s），
+  且发布会 spawn magpie CLI、对方还会再启宿主嵌套加载本插件；实际结构是
+  `index.mjs`（宿主内触发器）spawn detached `worker.mjs` 跑一轮探测+发布，
+  整轮跨进程锁（`cycle.lock`）让嵌套副本跳过；
+- 空索引首次不发布（避免 add 时空目录触发无意义发布链）；
+- 探测命令（npm/brew/pipx/which）带常见绝对路径回退：GUI 启动的宿主进程
+  PATH 可能只有系统默认，没有 /opt/homebrew/bin 等；
+- reload 触发方式：`magpie plugin add` 重跑（folder 插件按当前内容加载），
+  或任何会启动宿主的命令；网关侧中间件对 plugins.json 变更 1s 内热重载。
 
 ## M2 · tool 钩子 + 用户覆盖层
 

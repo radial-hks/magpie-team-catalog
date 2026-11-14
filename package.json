@@ -1,0 +1,23 @@
+{
+  "name": "magpie-team-catalog",
+  "version": "0.1.0",
+  "description": "Team catalog: internal CLI tools and project addresses in one registry, probed per machine, injected into every agent's system prompt",
+  "type": "module",
+  "main": "./index.mjs",
+  "files": [
+    "index.mjs",
+    "worker.mjs",
+    "catalog.middleware.js",
+    "lib/",
+    "registry/"
+  ],
+  "keywords": ["magpie", "magpie-plugin", "opencode", "opencode-plugin"],
+  "license": "MIT",
+  "magpie": {
+    "middleware": "./catalog.middleware.js",
+    "options": {
+      "registry": "./registry/registry.yaml",
+      "interval": 900
+    }
+  }
+}
