@@ -8,13 +8,13 @@
 
 团队声明（应该有什么）与本机实测态（这台机器上真有什么）彻底分离；插件只读、fail-open、可随时关闭无残留。
 
-> 状态：**M1 已实现**（Bun 宿主模块 + 探测 worker + middleware 注入，沙箱验收全部通过；见 [docs/plan.md](docs/plan.md) 的勾选与实现备注）。M2（catalog 工具 + 覆盖层）未开始。
+> 状态：**M2 已实现**（M1 探测注入 + M2 catalog 工具/覆盖层，沙箱验收全部通过；见 [docs/plan.md](docs/plan.md)）。M3（窗口页）未开始。
 
 ## 结构
 
 | 文件 | 职责 |
 | --- | --- |
-| `index.mjs` | 插件入口（Bun 宿主内）：加载时与按周期 spawn detached worker |
+| `index.mjs` | 插件入口（Bun 宿主内）：加载时与按周期 spawn detached worker；提供 `catalog` 工具 |
 | `worker.mjs` | 一轮探测+发布的独立进程：读 registry → 探测 → 写 state → 索引发布到 options |
 | `catalog.middleware.js` | 网关中间件（moejs）：把 options.index 注入每个请求的 system prompt |
 | `lib/yaml.mjs` | registry.yaml 的最小 YAML 子集解析器（纯函数） |
@@ -22,7 +22,8 @@
 | `lib/probe.mjs` | 本机探测：npm/pipx/brew 清单 + PATH/绝对路径，5s 超时并发≤8 |
 | `lib/inject.mjs` | 各协议 system 注入（anthropic/chat/responses/gemini，纯函数） |
 | `lib/cycle.mjs` | 一轮刷新的编排：跨进程锁、state 原子写、经 magpie CLI 发布索引 |
-| `test/` | bun test（纯函数全覆盖 + 假 CLI 探测实测） |
+| `lib/tool.mjs` | `catalog` 工具：搜索（id/名称/用法）与详情（docs 全文 + 按需 probe） |
+| `test/` | bun test（纯函数全覆盖 + 假 CLI 探测/工具实测，共 50 项） |
 
 测试：`bun test`；沙箱验收步骤见 plan.md M1 的验收标准。
 

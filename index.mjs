@@ -16,6 +16,7 @@ import { spawn } from "node:child_process"
 import path from "node:path"
 
 import { DEFAULTS } from "./lib/cycle.mjs"
+import { catalogTool } from "./lib/tool.mjs"
 
 const PLUGIN_DIR = import.meta.dir
 
@@ -24,7 +25,29 @@ export default async function TeamCatalog(_input, options) {
   const interval = Math.max(60, userOptions.interval ?? DEFAULTS.interval)
   triggerCycle(userOptions)
   setInterval(() => triggerCycle(userOptions), interval * 1000)
-  return {}
+  return {
+    tool: {
+      // MCP 名为 <插件短名>_catalog（magpie 汇入 /mcp/magpie/tools）。
+      // args 用纯 JSON Schema（文件夹插件就地加载、无 node_modules，不依赖
+      // @opencode-ai/plugin 的 zod）。
+      catalog: {
+        description: "团队内部工具目录与项目地址：按关键词搜索（id/名称/用法），或传 detail=<id> 查用法全文与本机状态（安装/升级命令在 fix 字段）。",
+        args: {
+          type: "object",
+          properties: {
+            query: { type: "string", description: "搜索关键词，省略则列出全部" },
+            detail: { type: "string", description: "要查详情的条目 id（返回用法全文与本机实测状态）" },
+          },
+          additionalProperties: false,
+        },
+        execute: async (args) => {
+          // 探测不在 execute 里周期跑（55s 预算纪律）；state 缺失时仅触发
+          // 后台刷新，本次按 unknown 返回
+          return catalogTool(args ?? {}, userOptions, { onStale: () => triggerCycle(userOptions) })
+        },
+      },
+    },
+  }
 }
 
 /** spawn 一个 detached worker，unref 后生命周期独立于宿主。 */

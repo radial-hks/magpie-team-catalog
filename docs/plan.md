@@ -53,11 +53,18 @@
 3. 索引注入按覆盖过滤（disabled 不出现）；
 4. 版本检测：`min` 比对，outdated 在索引与工具返回中标注。
 
-**验收标准：**
+**验收标准：**（2026-11-15 沙箱实测通过；MCP 握手用 curl 走完整
+initialize→tools/list→tools/call 流程，与 Agent 侧 MCP 客户端同协议）
 
-- [ ] `claude mcp add … http://127.0.0.1:3425/mcp/magpie/tools` 后 Agent 能调 `team-catalog_catalog`（名称前缀以 magpie 实际生成的短名为准）；
-- [ ] 覆盖 `bin` 路径后探测按覆盖路径成功；`enabled: false` 后索引与工具均不出现；
-- [ ] 每工具单次执行 55s 上限不被探测逻辑阻塞（探测在插件加载/周期任务，不在工具 execute 内）。
+- [x] `/mcp/magpie/tools` 上 Agent 能调 `magpie-team-catalog_catalog`（名称
+  前缀以 magpie 实际生成的短名为准：文件夹插件短名即目录名）；
+- [x] 覆盖 `bin` 路径后探测按覆盖路径成功（实测：覆盖后 version 报出
+  覆盖路径下假 CLI 的 9.9.9）；`enabled: false` 后索引与工具均不出现；
+- [x] 每工具单次执行 55s 上限不被探测逻辑阻塞：周期探测在 worker 里，
+  execute 内只有查详情时按需 probe（≤5s）；
+- [x] `detail` 返回按需 probe 结果（probe:ok + 输出，present 升 configured，
+  outdated 保留并附带 probe 证据）；`min` 比对在索引与工具返回中标注；
+- [x] `bun test` 覆盖工具纯函数（匹配/响应组装/覆盖层），共 50 项。
 
 ## M3 · 窗口页
 
