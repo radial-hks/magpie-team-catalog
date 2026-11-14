@@ -1,0 +1,7 @@
+# magpie-team-catalog: 本机实际可用的团队工具与项目地址。
+# 团队声明见 registry.yaml（字段规范 docs/registry-schema.md）。
+version: 1
+
+tools: []
+
+projects: []
