@@ -92,6 +92,11 @@ initialize→tools/list→tools/call 流程，与 Agent 侧 MCP 客户端同协�
   （如 plugin update）会把该 option 改写到空闲端口，避免与常驻实例撞端口；
   桌面模式下页面回退直连 `127.0.0.1:<servicePort>`，web 模式走 `magpie.service`
   反向代理；
+- 【实装踩坑】worker 发布索引时不能以宿主传入的 options 为基准——无页面
+  进程里 servicePort 已被改写成内部值，写回会污染用户配置（实测发生过：
+  plugins.json 里混入一次性的 51849）。发布基准改为只读 plugins.json 里
+  本插件的用户 options（`cycle.mjs readUserOptions`），运行时行为仍用宿主
+  传入值。另：`magpie plugin options <name> '{}'` 是空操作，清除要用 `off`；
 - 页面表格用纯 DOM API 构建（无 innerHTML）；覆盖编辑改草稿，保存时经
   `magpie.options.set` 整体写回（保留 index/registry 等既有键）。
 

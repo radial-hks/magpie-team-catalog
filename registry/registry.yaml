@@ -1,7 +1,54 @@
-# magpie-team-catalog: 本机实际可用的团队工具与项目地址。
-# 团队声明见 registry.yaml（字段规范 docs/registry-schema.md）。
+# 本机 registry —— 单机形态（团队仓库定下后切换为 git spec，见 docs/registry-workflow.md）
+# 字段规范：docs/registry-schema.md
 version: 1
 
-tools: []
+tools:
+  - id: weknora
+    name: WeKnoraSearch CLI
+    kind: binary
+    install: "见 weknora-docs 仓库（NAS 部署配套）"
+    usage: |
+      weknora <命令>（知识库管理 / 检索）
+    check:
+      bin: weknora
+      version: ["--version"]
 
-projects: []
+  - id: gitnexus
+    name: GitNexus CLI
+    kind: binary
+    install: "brew install gitnexus（当前经 homebrew 安装）"
+    usage: |
+      gitnexus analyze | index | wiki …（代码库知识图谱）
+    check:
+      bin: gitnexus
+      version: ["--version"]
+
+  - id: hermes
+    name: Hermes Agent
+    kind: binary
+    install: "~/.local/bin/hermes（本地安装）"
+    usage: |
+      hermes …（多 agent 会话 / 团队调研编排）
+    check:
+      bin: hermes
+      version: ["--version"]
+
+  - id: bun
+    kind: binary
+    install: "curl -fsSL https://bun.sh/install | bash"
+    usage: |
+      bun <run|test|add> …（magpie 插件宿主运行时）
+    check:
+      bin: bun
+      version: ["--version"]
+
+projects:
+  - id: weknora-docs
+    name: WeKnora 文档仓库
+    vcs: git@github.com:radial-hks/weknora-docs.git
+  - id: taskbridge
+    name: TaskBridge
+    vcs: git@github.com:radial-hks/TaskBridge.git
+  - id: sentinel-maa
+    name: sentinel_maa
+    vcs: git@github.com:radial-hks/sentinel_maa.git
