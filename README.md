@@ -8,7 +8,16 @@
 
 团队声明（应该有什么）与本机实测态（这台机器上真有什么）彻底分离；插件只读、fail-open、可随时关闭无残留。
 
-> 状态：**M3 已实现**（M1 探测注入 + M2 catalog 工具/覆盖层 + M3 窗口页与本地 service；数据链路沙箱实测通过，GUI 渲染待桌面实机，见 [docs/plan.md](docs/plan.md)）。M4（团队化发布）未开始。
+> 状态：**M1–M3 已实现，M4 完成代码侧**（http/git registry 拉取 + 变更流程文档）；剩余为团队决策项（内部 npm 发布、双机验证）与 GUI 三项实机确认，见 [docs/plan.md](docs/plan.md)。
+
+## registry 数据源
+
+`options.registry` 支持三种形态（详见 [registry-workflow.md](docs/registry-workflow.md)）：
+
+- 本地路径 / `file://`（单机试运行）；
+- `http(s)://…/registry.yaml`：每轮下载，失败沿用缓存；
+- git 仓库（`git@…` / `git+https://…` / `https://….git`，可带 `#ref`）：
+  首次 clone、之后 fetch+reset，凭据走本机 git 配置，刷新失败沿用缓存。
 
 ## 结构
 
@@ -36,6 +45,7 @@
 | [docs/design.md](docs/design.md) | 详细设计：架构、配置分层、探测状态机、Agent 暴露方式、安全边界 |
 | [docs/plan.md](docs/plan.md) | 分阶段实施计划与各阶段验收标准 |
 | [docs/registry-schema.md](docs/registry-schema.md) | `registry.yaml` 的字段规范 |
+| [docs/registry-workflow.md](docs/registry-workflow.md) | registry 变更流程：PR 模板、check 命令纪律、min 升级流程、数据源形态 |
 | [registry/registry.example.yaml](registry/registry.example.yaml) | 示例注册表 |
 
 ## 要解决的问题

@@ -102,10 +102,21 @@ initialize→tools/list→tools/call 流程，与 Agent 侧 MCP 客户端同协�
 3. registry 变更流程文档：PR 模板、check 命令纪律（只读幂等）、`min` 升级流程；
 4. 双机验证（Mac 主力机 + win）：覆盖层各自独立，索引各自正确。
 
+**进展（2026-11-15）：**
+
+- [x] 第 1、3 项已实现：`lib/source.mjs` 统一三种数据源
+  （本地 / http / git，含 `#ref` 与刷新失败沿用缓存），cycle/tool/service
+  共用；沙箱实测 http 与 `git+file://` 两种源的完整发布链；变更流程文档
+  [registry-workflow.md](registry-workflow.md)（PR 模板、check 纪律、min 流程）；
+- [ ] 第 2 项（内部 npm 发布）与第 4 项（双机验证）待团队决策：
+  registry 仓库位置 / `@team` scope 的 npm 通道 / win 机器验证时机。
+
 **验收标准：**
 
 - [ ] 第二台机器一条命令装上并出现正确索引；
 - [ ] registry 加一个工具（PR merge）后 ≤15 分钟两台机器都拉到（无需插件发版）。
+  （两项均为发布后实测项；拉取机制本身已在沙箱验证：http/git 源改内容后
+  下一轮 worker 即拉到新索引。）
 
 ## 工程纪律
 
