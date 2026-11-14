@@ -1,0 +1,103 @@
+// service.mjs / pageView 测试：纯视图组装 + 真 service HTTP 行为（Bun.serve）。
+import { afterAll, beforeAll, describe, expect, test } from "bun:test"
+import { mkdtempSync, writeFileSync, rmSync } from "node:fs"
+import { tmpdir } from "node:os"
+import path from "node:path"
+
+import { pageView, startService, DEFAULT_SERVICE_PORT } from "../lib/service.mjs"
+import { parseRegistry } from "../lib/core.mjs"
+
+const REGISTRY = `version: 1
+tools:
+  - id: deploy-cli
+    name: 部署 CLI
+    kind: npm
+    install: "npm i -g @team/deploy-cli"
+    min: 1.4.0
+    check: {bin: deploy-cli, version: ["--version"]}
+  - id: perf-diag
+    kind: binary
+    install: "brew install team/tap/perf-diag"
+projects:
+  - id: billing
+    vcs: git@github.com:team/billing.git
+`
+
+describe("pageView（纯）", () => {
+  const reg = parseRegistry(REGISTRY)
+
+  test("探测状态、覆盖、钉死、禁用各有其位", () => {
+    const state = { checkedAt: 12345, tools: { "deploy-cli": { status: "outdated", version: "1.2.0", via: "path", at: 12345 } } }
+    const overrides = { "perf-diag": { enabled: false } }
+    const v = pageView(reg, state, { overrides, index: "某索引" }, "darwin")
+    expect(v.tools[0]).toMatchObject({ id: "deploy-cli", status: "outdated", version: "1.2.0", min: "1.4.0", via: "path", at: new Date(12345).toISOString() })
+    expect(v.tools[1]).toMatchObject({ id: "perf-diag", status: "disabled" })
+    expect(v.projects[0]).toMatchObject({ id: "billing", vcs: "git@github.com:team/billing.git" })
+    expect(v.checkedAt).toBe(new Date(12345).toISOString())
+    expect(v.index).toBe("某索引")
+  })
+
+  test("钉死状态优先于探测结果", () => {
+    const state = { checkedAt: 1, tools: { "deploy-cli": { status: "missing" } } }
+    const v = pageView(reg, state, { overrides: { "deploy-cli": { status: "configured" } } }, "darwin")
+    expect(v.tools[0].status).toBe("configured")
+    expect(v.tools[0].override).toEqual({ status: "configured" })
+  })
+
+  test("无 state → unknown", () => {
+    const v = pageView(reg, null, {}, "darwin")
+    expect(v.tools.every((t) => t.status === "unknown")).toBe(true)
+    expect(v.checkedAt).toBeUndefined()
+  })
+})
+
+describe("service HTTP（真 Bun.serve）", () => {
+  let dir
+  let server
+  let base
+
+  beforeAll(() => {
+    dir = mkdtempSync(path.join(tmpdir(), "tc-svc-"))
+    writeFileSync(path.join(dir, "registry.yaml"), REGISTRY)
+    writeFileSync(path.join(dir, "state.json"), JSON.stringify({ checkedAt: 999, tools: { "deploy-cli": { status: "present", version: "1.4.2", via: "npm", at: 999 } } }))
+    const port = 34000 + Math.floor(Math.random() * 2000)
+    server = startService({ registry: path.join(dir, "registry.yaml"), statePath: path.join(dir, "state.json"), servicePort: port })
+    base = `http://127.0.0.1:${server.port}`
+  })
+
+  afterAll(() => {
+    server?.stop?.(true)
+    rmSync(dir, { recursive: true, force: true })
+  })
+
+  test("GET /state 返回视图与 CORS 头", async () => {
+    const r = await fetch(`${base}/state`)
+    expect(r.status).toBe(200)
+    expect(r.headers.get("access-control-allow-origin")).toBe("*")
+    const v = await r.json()
+    expect(v.tools[0]).toMatchObject({ id: "deploy-cli", status: "present", version: "1.4.2" })
+    expect(v.projects[0].id).toBe("billing")
+  })
+
+  test("OPTIONS 预检放行；404 兜底", async () => {
+    expect((await fetch(`${base}/state`, { method: "OPTIONS" })).status).toBe(200)
+    expect((await fetch(`${base}/nope`)).status).toBe(404)
+  })
+
+  test("POST /refresh 202 并触发 worker（state 变新）", async () => {
+    const r = await fetch(`${base}/refresh`, { method: "POST" })
+    expect(r.status).toBe(202)
+    // worker 探测 perf-diag（不存在）→ state 会更新 checkedAt
+    let changed = false
+    for (let i = 0; i < 20 && !changed; i++) {
+      await new Promise((res) => setTimeout(res, 500))
+      const v = await (await fetch(`${base}/state`)).json()
+      changed = v.checkedAt !== new Date(999).toISOString()
+    }
+    expect(changed).toBe(true)
+  })
+
+  test("默认端口常量与 package.json 声明一致", () => {
+    expect(DEFAULT_SERVICE_PORT).toBe(3969)
+  })
+})

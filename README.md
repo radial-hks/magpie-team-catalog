@@ -8,7 +8,7 @@
 
 团队声明（应该有什么）与本机实测态（这台机器上真有什么）彻底分离；插件只读、fail-open、可随时关闭无残留。
 
-> 状态：**M2 已实现**（M1 探测注入 + M2 catalog 工具/覆盖层，沙箱验收全部通过；见 [docs/plan.md](docs/plan.md)）。M3（窗口页）未开始。
+> 状态：**M3 已实现**（M1 探测注入 + M2 catalog 工具/覆盖层 + M3 窗口页与本地 service；数据链路沙箱实测通过，GUI 渲染待桌面实机，见 [docs/plan.md](docs/plan.md)）。M4（团队化发布）未开始。
 
 ## 结构
 
@@ -23,7 +23,9 @@
 | `lib/inject.mjs` | 各协议 system 注入（anthropic/chat/responses/gemini，纯函数） |
 | `lib/cycle.mjs` | 一轮刷新的编排：跨进程锁、state 原子写、经 magpie CLI 发布索引 |
 | `lib/tool.mjs` | `catalog` 工具：搜索（id/名称/用法）与详情（docs 全文 + 按需 probe） |
-| `test/` | bun test（纯函数全覆盖 + 假 CLI 探测/工具实测，共 50 项） |
+| `lib/service.mjs` | 窗口页的本地 service（127.0.0.1，端口读 options.servicePort）+ 页面视图纯函数 |
+| `page/` | 窗口页：目录表格、行内覆盖编辑（magpie.options.set 写回）、立即重跑 |
+| `test/` | bun test（纯函数全覆盖 + 假 CLI 探测/工具/service 实测，共 57 项） |
 
 测试：`bun test`；沙箱验收步骤见 plan.md M1 的验收标准。
 
