@@ -1,0 +1,38 @@
+# 示例 registry —— 本地试运行用（M1 的 file:// 数据源）
+# 字段规范见 ../docs/registry-schema.md
+version: 1
+
+tools:
+  - id: deploy-cli
+    name: 部署 CLI
+    kind: npm
+    install: "npm i -g @team/deploy-cli"
+    min: 1.4.0
+    usage: |
+      deploy-cli release --app <name> [--canary]
+    doc: docs/deploy-cli.md
+    check:
+      bin: deploy-cli
+      version: ["--version"]
+      probe: ["whoami"]
+
+  - id: perf-diag
+    name: 性能诊断
+    kind: binary
+    install: "brew install team/tap/perf-diag"
+    usage: |
+      perf-diag trace --pid <pid> --duration 30
+    check:
+      bin: perf-diag
+      version: ["--version"]
+
+projects:
+  - id: billing
+    name: 计费服务
+    vcs: git@github.com:team/billing.git
+    url: https://wiki.internal/billing
+
+  - id: legacy-sync
+    name: P4 旧同步服务
+    vcs: "perforce://p4.internal:1666//depot/legacy-sync"
+    note: 主仓库在 billing，此处仅历史镜像
