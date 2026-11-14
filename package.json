@@ -9,6 +9,7 @@
     "worker.mjs",
     "catalog.middleware.js",
     "lib/",
+    "page/",
     "registry/"
   ],
   "keywords": ["magpie", "magpie-plugin", "opencode", "opencode-plugin"],
@@ -18,6 +19,12 @@
     "options": {
       "registry": "./registry/registry.yaml",
       "interval": 900
+    },
+    "page": {
+      "title": "Team catalog",
+      "titles": { "zh": "团队目录", "zh-TW": "团队目录", "en": "Team catalog" },
+      "file": "page/index.html",
+      "service": { "port": 3969, "option": "servicePort" }
     }
   }
 }

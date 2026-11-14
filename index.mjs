@@ -17,6 +17,7 @@ import path from "node:path"
 
 import { DEFAULTS } from "./lib/cycle.mjs"
 import { catalogTool } from "./lib/tool.mjs"
+import { startService } from "./lib/service.mjs"
 
 const PLUGIN_DIR = import.meta.dir
 
@@ -25,6 +26,9 @@ export default async function TeamCatalog(_input, options) {
   const interval = Math.max(60, userOptions.interval ?? DEFAULTS.interval)
   triggerCycle(userOptions)
   setInterval(() => triggerCycle(userOptions), interval * 1000)
+  // 窗口页的本地 service：端口必须读 options.servicePort（magpie 在无页面
+  // 进程里会把它改到空闲端口，避免与常驻实例撞端口）
+  startService(userOptions)
   return {
     tool: {
       // MCP 名为 <插件短名>_catalog（magpie 汇入 /mcp/magpie/tools）。

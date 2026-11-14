@@ -73,11 +73,27 @@ initialize→tools/list→tools/call 流程，与 Agent 侧 MCP 客户端同协�
 3. 行内编辑覆盖 → `magpie.options.set` 写回；
 4. 探测"立即重跑"按钮（触发一次全量刷新）。
 
-**验收标准：**
+**验收标准：**（2026-11-15：数据链路已在沙箱实测；GUI 渲染项待桌面窗口实机验证）
 
-- [ ] 页面在 magpie 窗口正常渲染（沙盒 iframe、无外部请求）；
-- [ ] 编辑覆盖保存后，下一个请求的索引按新覆盖过滤；
-- [ ] 页面抛错显示"此页面已停止工作"，重试可恢复，不影响其他页面。
+- [x] service 数据链路：`magpie serve` 沙箱里 GET /state 返回正确视图，
+  POST /refresh 触发 worker 重探（删掉假 CLI 后 status 变 missing），CORS 头
+  齐全（沙箱 iframe 的 opaque origin 可访问）；`magpie plugin` 列表显示
+  `page Team catalog`；
+- [ ] 页面在 magpie 窗口正常渲染（沙盒 iframe、无外部请求）——待实机；
+- [ ] 编辑覆盖保存后，下一个请求的索引按新覆盖过滤——机制已验证
+  （options.set 写 plugins.json → 宿主重载 → worker 重探测），页面端到端
+  待实机；
+- [ ] 页面抛错显示「此页面已停止工作」，重试可恢复——magpie 内核自带
+  错误边界（框架行为），待实机。
+
+**实现备注：**
+
+- service 端口必须从 `options.servicePort` 读：magpie 在不服务页面的进程
+  （如 plugin update）会把该 option 改写到空闲端口，避免与常驻实例撞端口；
+  桌面模式下页面回退直连 `127.0.0.1:<servicePort>`，web 模式走 `magpie.service`
+  反向代理；
+- 页面表格用纯 DOM API 构建（无 innerHTML）；覆盖编辑改草稿，保存时经
+  `magpie.options.set` 整体写回（保留 index/registry 等既有键）。
 
 ## M4 · 团队化
 
