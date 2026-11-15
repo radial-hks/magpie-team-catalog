@@ -26,6 +26,7 @@ projects:             # 项目地址条目列表
   check:                    # 可选。探测规则；不写则仅按 kind 默认方式探测
     bin: deploy-cli         # PATH 中的可执行名（用户可用 overrides.bin 覆盖为绝对路径）
     version: ["--version"]  # 可选。参数数组，输出中解析首个 semver
+    timeoutMs: 5000         # 可选。本条目的探测超时（毫秒，正整数），缺省继承全局
     probe: ["whoami"]       # 可选。幂等只读命令，退出 0 → configured
   platform:                 # 可选。按平台差异声明，缺省全平台
     darwin: { install: "brew install team/tap/deploy-cli" }
@@ -36,6 +37,8 @@ projects:             # 项目地址条目列表
 
 - `check` 中所有命令字段是**固定的参数数组**，schema 层面禁止任意 shell 字符串（防注入）；
 - `probe` 必须幂等、只读、≤5s、不弹网络副作用（登录类命令禁止）；这是 registry 作者纪律，PR 审核把关；
+- `timeoutMs` 只给确实慢的条目（冷启动、输出多）放宽，默认不写；上限建议
+  15000——探测是并发跑的，一个条目拖太久会拖慢整轮刷新；
 - `kind` 决定探测方式优先级：npm → `npm ls -g`；pipx → `pipx list --json`；pip → 包名导入检查；brew → `brew list --versions`；binary → PATH / `where` 查找。任一途径命中即 `present`；
 - `install` 永远只是文本，插件不得解析或执行它。
 

@@ -17,6 +17,14 @@ function fakeBin(name, out) {
   return p
 }
 
+/** 慢 CLI：先 sleep 再输出（模拟冷启动/输出多的 --version）。 */
+function fakeSlowBin(name, out, ms) {
+  const p = path.join(dir, name)
+  writeFileSync(p, `#!/bin/sh\nsleep ${(ms / 1000).toFixed(2)}\necho "${out}"\n`)
+  chmodSync(p, 0o755)
+  return p
+}
+
 beforeAll(() => {
   dir = mkdtempSync(path.join(tmpdir(), "tc-probe-"))
   process.env.PATH = `${dir}:${OLD_PATH}`
@@ -83,6 +91,23 @@ describe("which / probeTool", () => {
   test("which 对空名/含斜杠路径的行为", async () => {
     expect(await which("")).toBe(null)
     expect(await which("definitely-not-here-xyz")).toBe(null)
+  })
+
+  test("check.timeoutMs：条目预算优先于全局（放宽能读出、收紧能掐死）", async () => {
+    fakeSlowBin("slowcli", "slowcli 2.3.4", 600)
+    const base = { bin: "slowcli", version: ["--version"] }
+
+    // 全局 200ms 掐死，条目声明 3000ms → 版本能读出
+    const wide = tool({ id: "slowcli", check: { ...base, timeoutMs: 3000 } })
+    const fw = await probeTool(wide, { timeoutMs: 200 })
+    expect(fw.found).toBe(true)
+    expect(fw.version).toBe("2.3.4")
+
+    // 反向：全局足够松，但条目只给 100ms → 版本拿不到（found 仍为 true）
+    const tight = tool({ id: "slowcli", check: { ...base, timeoutMs: 100 } })
+    const ft = await probeTool(tight, { timeoutMs: 3000 })
+    expect(ft.found).toBe(true)
+    expect(ft.version).toBeUndefined()
   })
 })
 
