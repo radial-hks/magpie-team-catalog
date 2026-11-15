@@ -116,6 +116,7 @@ describe("service HTTP（真 Bun.serve）", () => {
     // 主界面是 service 端的，不依赖沙箱页的网络权限（官方带路页模式）
     expect(html).toContain("团队目录")
     expect(html).toContain('fetch("/state")')
+    expect(html).toContain("CatalogViewModel")
   })
 
   test("POST /options 校验 body：非对象拒绝，不写盘", async () => {
@@ -125,8 +126,8 @@ describe("service HTTP（真 Bun.serve）", () => {
         headers: { ...headers, "content-type": "application/json" },
         body: JSON.stringify(bad),
       })
-      expect(r.status).toBe(500)
-      expect((await r.json()).error).toContain("overrides")
+      expect(r.status).toBe(409)
+      expect((await r.json()).error).toContain("配置")
     }
   })
 

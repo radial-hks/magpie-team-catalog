@@ -16,10 +16,16 @@ fail-open，不负责安装 CLI。用户确认后可写个人注册/本机覆盖
 个人注册文件保留，便于恢复与备份。
 
 > 状态：**本机核心功能完成**：团队/个人 CLI 注册、Git/P4 项目与工作区管理、
-> GUI 和分页只读 MCP 均已验收，129 项测试通过。阶段记录见
+> GUI 和分页只读 MCP 均已验收；当前 UI 配置优化后共 135 项测试通过。历史核心阶段记录见
 > [docs/milestone-projects-mcp.md](docs/milestone-projects-mcp.md)。
 > Skill 导出/提示词注入默认关闭；团队 npm 发布、双机同步、Skill/library 分发实机验收
 > 属于后续部署项，见 [docs/plan.md](docs/plan.md)。使用与部署见 [docs/usage.md](docs/usage.md)。
+
+## 使用手册
+
+首次使用请从 **[使用指南手册](docs/usage.md)** 开始：安装 → CLI 注册 → 本机覆盖 →
+Git/P4 项目与工作区 → 插件设置 → MCP 查询 → 备份与排障。
+常用按钮和保存步骤速查见 **[UI 操作速查](docs/ui-guide.md)**。
 
 ## 本机开发项目（Git / P4）
 
@@ -75,7 +81,7 @@ magpie library skill router on          # 或聚合入口按需读取
 | `lib/skill.mjs` | 团队 skill + 本机实测 → SKILL.md 渲染与同步（F3）；hand-over 后分流 library（F4，方案 C） |
 | `lib/service.mjs` | 窗口页本地 service：状态/覆盖/个人注册/npm 扫描接口、页面会话校验，端口占用时后台重试 |
 | `page/` | 带路页：`index.html` 在外壳 + `boot.js` 交接主题后 `location.replace` 到 service；主界面 `main.html` 由 service 提供 |
-| `test/` | bun test（纯函数全覆盖 + 假 CLI 探测/工具/service 实测，共 129 项） |
+| `test/` | bun test（纯函数全覆盖 + 假 CLI 探测/工具/service 实测，共 135 项） |
 
 测试：`bun test`；沙箱验收步骤见 plan.md M1 的验收标准。
 
@@ -87,7 +93,8 @@ magpie library skill router on          # 或聚合入口按需读取
 | [docs/plan.md](docs/plan.md) | 分阶段实施计划与各阶段验收标准（含基线后 F1–F4） |
 | [docs/milestone-local-catalog.md](docs/milestone-local-catalog.md) | 历史本机核心基础阶段交付与验收 |
 | [docs/milestone-projects-mcp.md](docs/milestone-projects-mcp.md) | Git/P4 与 MCP 核心完成阶段验收、兼容性和后续项 |
-| [docs/usage.md](docs/usage.md) | 使用说明：选项参考、三条使用路径、工作机部署清单、排障 |
+| [docs/ui-guide.md](docs/ui-guide.md) | UI 操作速查：按钮路径、分组/筛选、草稿与安全确认 |
+| [docs/usage.md](docs/usage.md) | 完整使用手册：安装、CLI/Git/P4、配置、MCP、Skill、备份与排障 |
 | [docs/mcp-design.md](docs/mcp-design.md) | MCP 发现/详情/显式检查、分页/筛选/快照与安全边界 |
 | [docs/local-projects.md](docs/local-projects.md) | 本机 Git/P4 项目、工作区发现、团队绑定与只读检查 |
 | [docs/personal-registry.md](docs/personal-registry.md) | 个人注册、npm 候选扫描、ueb 示例、冲突与安全边界 |

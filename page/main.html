@@ -3,382 +3,40 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="catalog-token" content="__CATALOG_TOKEN__">
+<meta name="catalog-session" content="__CATALOG_SESSION__">
 <title>团队目录</title>
 <style>
-  :root {
-    --bg: Canvas; --fg: CanvasText; --muted: GrayText;
-    --border: color-mix(in srgb, CanvasText 15%, transparent);
-    color-scheme: light dark;
-  }
-  body {
-    margin: 16px 20px;
-    font: 13px/1.5 -apple-system, "SF Pro Text", "PingFang SC", "Segoe UI", system-ui, sans-serif;
-    background: var(--bg); color: var(--fg);
-  }
-  h1 { font-size: 15px; margin: 0 0 4px; }
-  .sub { color: var(--muted); font-size: 12px; margin: 0 0 12px; }
-  table { border-collapse: collapse; width: 100%; margin-bottom: 18px; }
-  th { text-align: left; font-weight: 500; color: var(--muted); font-size: 12px; padding: 4px 8px 4px 0; }
-  td { padding: 4px 8px 4px 0; vertical-align: top; border-top: 1px solid var(--border); }
-  code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px; }
-  .st { display: inline-block; padding: 1px 7px; border-radius: 9px; font-size: 11px; border: 1px solid var(--border); }
-  .st.present, .st.configured { color: #1a7f37; }
-  .st.outdated { color: #b45309; }
-  .st.missing { color: #b91c1c; }
-  .st.disabled { opacity: 0.5; }
-  .st.unknown { opacity: 0.6; }
-  input[type="text"] { width: 160px; }
-  select, input, button { font: inherit; color: var(--fg); }
-  .bar { display: flex; gap: 8px; align-items: center; margin: 10px 0; flex-wrap: wrap; }
-  button { padding: 4px 12px; border-radius: 7px; border: 1px solid color-mix(in srgb, var(--fg) 35%, transparent); background: transparent; cursor: pointer; }
-  button.primary { background: color-mix(in srgb, var(--fg) 10%, transparent); }
-  .msg { font-size: 12px; color: var(--muted); }
-  .err { color: #b91c1c; }
-  .ovr { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
-  .idx { font-family: ui-monospace, Menlo, monospace; font-size: 12px; color: var(--muted); white-space: pre-wrap; border: 1px dashed var(--border); padding: 8px 10px; margin-bottom: 16px; }
-  label { display: inline-flex; gap: 4px; align-items: center; }
-  dialog { max-width: 720px; width: 85vw; background: var(--bg); color: var(--fg); border: 1px solid var(--border); border-radius: 10px; }
-  dialog form { display: grid; gap: 10px; }
-  dialog label { display: grid; grid-template-columns: 155px 1fr; align-items: start; }
-  dialog input[type="text"], dialog textarea, dialog select { width: 100%; box-sizing: border-box; font: inherit; color: var(--fg); background: var(--bg); }
-  dialog textarea { min-height: 70px; }
-  dialog .actions { display: flex; gap: 8px; justify-content: flex-end; }
-  .warning { color: #b45309; white-space: pre-wrap; }
-  [hidden] { display: none !important; }
+:root { color-scheme:light dark; --bg:Canvas; --fg:CanvasText; --muted:GrayText; --border:color-mix(in srgb,CanvasText 14%,transparent); --card:color-mix(in srgb,Canvas 96%,CanvasText); --accent:#3973df; }
+* { box-sizing:border-box; } [hidden] { display:none!important; }
+body { margin:0; padding:24px; background:var(--bg); color:var(--fg); font:13px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",system-ui,sans-serif; }
+h1,h2,h3,p { margin:0; } h1 { font-size:24px; letter-spacing:-.5px; } h2 { font-size:18px; } h3 { font-size:14px; }
+button,input,textarea,select { font:inherit; color:inherit; } button { border:1px solid var(--border); border-radius:8px; background:var(--bg); padding:7px 12px; cursor:pointer; transition:background .12s; }
+button:hover:not(:disabled) { background:color-mix(in srgb,var(--accent) 8%,var(--bg)); border-color:var(--accent); } button:disabled { opacity:.5; cursor:default; } button.primary { background:var(--accent); color:white; border-color:var(--accent); } button.danger { color:#c33; } :focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+input:not([type=checkbox]),select,textarea { border:1px solid var(--border); border-radius:7px; background:var(--bg); padding:8px 10px; min-width:0; } textarea { resize:vertical; min-height:85px; } input[type=checkbox] { accent-color:var(--accent); }
+.hint,.muted { color:var(--muted); font-size:12px; } .hint { display:block; overflow-wrap:anywhere; } .bar,.actions { display:flex; align-items:center; gap:8px; flex-wrap:wrap; } .actions { justify-content:flex-end; }
+.hero { display:flex; justify-content:space-between; gap:18px; align-items:center; margin-bottom:20px; } .hero p { margin-top:4px; } .stats { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; margin-bottom:18px; } .stat { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:12px 16px; } .stat strong { display:block; font-size:23px; font-weight:650; }
+.tabs { display:flex; gap:6px; border-bottom:1px solid var(--border); padding-bottom:10px; margin-bottom:16px; } .tabs button[aria-selected=true] { background:color-mix(in srgb,var(--accent) 12%,var(--bg)); color:var(--accent); border-color:transparent; font-weight:600; }
+.filters { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px; } .filters input { flex:1; min-width:180px; } .filters select { max-width:180px; } .section-head { display:flex; justify-content:space-between; align-items:center; gap:12px; margin:12px 0; flex-wrap:wrap; }
+.entries { display:grid; gap:10px; } .entry { border:1px solid var(--border); border-radius:10px; padding:14px 16px; background:var(--bg); min-width:0; } .entry-head { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; } .entry-name { display:flex; align-items:center; gap:7px; flex-wrap:wrap; } .entry-id { color:var(--muted); font:11px/1.6 ui-monospace,monospace; overflow-wrap:anywhere; } .entry-meta { display:flex; flex-wrap:wrap; gap:8px; margin-top:6px; } .tag,.badge { display:inline-block; border-radius:5px; padding:1px 7px; font-size:11px; background:var(--card); border:1px solid var(--border); } .badge.present,.badge.configured { color:#238344; } .badge.missing,.badge.not-repository { color:#c33; } .badge.outdated { color:#b8750f; } .badge.disabled { color:var(--muted); }
+.path { font:12px/1.6 ui-monospace,monospace; overflow-wrap:anywhere; color:var(--muted); margin-top:7px; } .entry-summary { margin-top:8px; max-width:100%; overflow-wrap:anywhere; } .entry-actions { margin-top:10px; } .entry-actions button { padding:4px 9px; font-size:12px; }
+details { margin-top:10px; } summary { cursor:pointer; color:var(--muted); font-size:12px; } pre { white-space:pre-wrap; overflow-wrap:anywhere; background:var(--card); padding:10px; border-radius:7px; font:12px/1.6 ui-monospace,monospace; max-height:280px; overflow:auto; } .group { margin-bottom:14px; border:1px solid var(--border); border-radius:10px; padding:12px; } .group>summary { display:flex; justify-content:space-between; gap:10px; font-size:13px; color:var(--fg); padding:2px 3px 10px; } .group .entries { margin-top:4px; }
+.empty { text-align:center; color:var(--muted); padding:35px 16px; border:1px dashed var(--border); border-radius:10px; } .notice { padding:9px 12px; border-radius:8px; background:var(--card); border:1px solid var(--border); margin-bottom:12px; white-space:pre-wrap; overflow-wrap:anywhere; } .notice.error,.form-error { color:#bf3333; } .notice.success { color:#238344; } .warning { color:#b8750f; white-space:pre-wrap; }
+.draft-bar { position:sticky; bottom:12px; background:var(--bg); border:1px solid var(--accent); border-radius:10px; padding:12px; margin-top:14px; box-shadow:0 3px 18px #0001; display:flex; justify-content:space-between; align-items:center; gap:8px; }
+dialog { max-width:760px; width:calc(100vw - 32px); max-height:90vh; padding:0; border:1px solid var(--border); border-radius:14px; background:var(--bg); color:var(--fg); box-shadow:0 12px 60px #0003; } dialog::backdrop { background:#0005; } .dialog-head { padding:20px 22px 12px; border-bottom:1px solid var(--border); } .dialog-head p { margin-top:6px; } .editor-form { padding:16px 22px; } .dialog-footer { position:sticky; bottom:0; padding:12px 22px; background:var(--bg); border-top:1px solid var(--border); } .form-section { border:0; padding:0; margin:0 0 18px; min-width:0; } legend { font-weight:600; padding:0; margin-bottom:10px; } .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; } .field { display:flex; flex-direction:column; gap:5px; min-width:0; } .field.wide { grid-column:1/-1; } .field-label { font-size:12px; font-weight:550; } .field>input,.field>select,.field>textarea { width:100%; } .advanced { padding:10px 0; } .advanced>summary { padding-bottom:12px; } .form-error:not(:empty) { padding:8px 0; } .consent { display:flex; align-items:flex-start; gap:8px; font-size:12px; margin:12px 0; } .confirm-dialog { max-width:420px; padding:22px; } .confirm-dialog p { margin:10px 0 20px; } .candidate-list { margin:12px 0; } .candidate { padding:10px 0; border-top:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; gap:10px; } .candidate>div { min-width:0; overflow-wrap:anywhere; }
+@media(max-width:640px) { body { padding:14px; } .hero { align-items:flex-start; flex-direction:column; } .stats { grid-template-columns:1fr 1fr; } .form-grid { grid-template-columns:1fr; } .field.wide { grid-column:auto; } .entry-head { flex-direction:column; } .filters select { flex:1; max-width:none; } .dialog-head,.editor-form,.dialog-footer { padding-left:16px; padding-right:16px; } }
 </style>
 </head>
 <body>
-<h1>团队目录</h1>
-<p class="sub">团队目录 + 个人注册 · npm 扫描仅提供候选，不自动注册/执行 · 本机覆盖仅本机生效</p>
-<meta name="catalog-token" content="__CATALOG_TOKEN__">
-<meta name="catalog-session" content="__CATALOG_SESSION__">
+<div id="app" aria-live="polite">正在加载团队目录…</div>
 <script>
-// 即使 GUI 阻止脚本/初始化失败，也给出诊断，不无限显示“加载中”。
-window.addEventListener("error", event => {
-  const app = document.getElementById("app")
-  if (app) app.textContent = "页面脚本错误：" + (event.message || "未知错误") + "；请重新加载插件页面。"
-})
-window.addEventListener("unhandledrejection", event => {
-  const app = document.getElementById("app")
-  if (app) app.textContent = "页面初始化失败：" + (event.reason?.message || event.reason) + "；请重新加载插件页面。"
-})
+window.addEventListener("error", e => { const app=document.getElementById("app"); if(app) app.textContent="页面脚本错误："+(e.message||"未知错误")+"；请重新加载页面。" })
+window.addEventListener("unhandledrejection", e => { const app=document.getElementById("app"); if(app) app.textContent="页面初始化失败："+(e.reason?.message||e.reason)+"；请重新加载页面。" })
 </script>
 <script src="/session-client.js"></script>
+<script src="/ui-kit.js"></script>
 <script src="/catalog-ui.js"></script>
 <script src="/project-ui.js"></script>
-<div id="app">加载中…</div>
-<script>
-// 由插件的 service 直接服务（127.0.0.1，框架仍是沙箱 opaque origin，
-// 所有请求带 CORS）。数据：GET /state、GET /options；写回：POST /options
-//（service 代执 magpie plugin options，触发宿主重载与新探测）、POST /refresh。
-(async () => {
-  const app = document.getElementById("app")
-  const msg = document.createElement("div")
-  msg.className = "msg"
-
-  // 主题：带路页经查询串带来
-  try {
-    const q = new URLSearchParams(location.search).get("t")
-    if (q) {
-      const t = JSON.parse(decodeURIComponent(escape(atob(q))))
-      if (t.tokens) for (const [k, v] of Object.entries(t.tokens)) {
-        if (typeof v === "string" && v) document.documentElement.style.setProperty("--" + k, v)
-      }
-      if (t.dark) document.documentElement.style.colorScheme = "dark"
-    }
-  } catch {}
-
-  const session = document.querySelector('meta[name="catalog-session"]').content
-  let expired = false
-  let overrideDirty = false
-  let draft = {}
-  let last = null
-  function recoverSession() {
-    if (expired) return
-    expired = true
-    const bar = document.createElement("div")
-    bar.className = "bar warning"
-    bar.append(document.createTextNode("插件已重载，页面会话已过期。未保存输入仍保留；重新加载后请重新确认操作。"))
-    const reload = document.createElement("button")
-    reload.type = "button"
-    reload.textContent = "重新加载页面"
-    reload.onclick = () => {
-      if ((!overrideDirty && !document.querySelector("dialog form")) || confirm("重新加载将丢弃当前未保存的修改，继续？")) location.reload()
-    }
-    bar.append(reload)
-    document.body.prepend(bar)
-    if (!overrideDirty && !document.querySelector("dialog form")) location.reload()
-  }
-  const api = createCatalogAPI({
-    token: document.querySelector('meta[name="catalog-token"]').content,
-    onExpired: recoverSession,
-  })
-  const manager = createCatalogManager({ api, refresh, notify: text => { msg.textContent = text } })
-  const projectsManager = createProjectManager({ api, refresh, notify: text => { msg.textContent = text } })
-
-  async function refresh() {
-    let view
-    try {
-      view = await (await fetch("/state")).json()
-    } catch (e) {
-      app.textContent = ""
-      const p = document.createElement("p")
-      p.className = "err msg"
-      p.textContent = "service 暂不可达（可能在随宿主重启），稍后自动重试…"
-      app.append(p)
-      setTimeout(refresh, 3000)
-      return
-    }
-    if (view.error) {
-      app.textContent = ""
-      const p = document.createElement("p")
-      p.className = "err msg"
-      p.textContent = view.error
-      app.append(p)
-      return
-    }
-    if (view.session && view.session !== session) { recoverSession(); return }
-    last = view
-    let opts = {}
-    try {
-      opts = (await (await fetch("/options")).json()) ?? {}
-    } catch {}
-    draft = structuredClone(opts.overrides ?? {})
-    overrideDirty = false
-    render(view)
-  }
-
-  function render(view) {
-    app.textContent = ""
-    const bar = document.createElement("div")
-    bar.className = "bar"
-    const rerun = document.createElement("button")
-    rerun.textContent = "立即重跑探测"
-    rerun.onclick = rerunProbe
-    const save = document.createElement("button")
-    save.className = "primary"
-    save.textContent = "保存本机覆盖"
-    save.onclick = saveOverrides
-    bar.append(rerun, save, msg)
-    app.append(bar)
-
-    manager.mount(bar)
-    if (view.warnings?.length) {
-      const warning = document.createElement("p")
-      warning.className = "warning"
-      warning.textContent = view.warnings.join("\n")
-      app.append(warning)
-    }
-    if (view.index) {
-      const pre = document.createElement("div")
-      pre.className = "idx"
-      pre.textContent = "当前目录索引（注入仅在 injectIndex 开启时生效）：\n" + view.index
-      app.append(pre)
-    }
-
-    app.append(toolTable(view.tools))
-    const projectBar = document.createElement("div")
-    projectBar.className = "bar"
-    projectsManager.mount(projectBar)
-    app.append(projectBar)
-    const p = projectTable(view.projects)
-    if (p) app.append(p)
-
-    const sub = document.createElement("p")
-    sub.className = "sub"
-    sub.textContent = view.checkedAt ? "探测时间：" + view.checkedAt : "尚未探测"
-    app.append(sub)
-  }
-
-  function toolTable(tools) {
-    const t = document.createElement("table")
-    const head = document.createElement("tr")
-    for (const h of ["工具", "状态", "版本", "途径", "探测时间", "本机覆盖（bin / 启用 / 钉死）"]) {
-      const th = document.createElement("th")
-      th.textContent = h
-      head.append(th)
-    }
-    t.append(head)
-    for (const tool of tools) {
-      const tr = document.createElement("tr")
-      const name = document.createElement("td")
-      const b = document.createElement("b")
-      b.textContent = tool.id + (tool.source === "local" ? " · 个人" : " · 团队")
-      name.append(b)
-      if (tool.name) {
-        const span = document.createElement("span")
-        span.className = "sub"
-        name.append(document.createElement("br"), span)
-        span.textContent = tool.name
-      }
-      const code = document.createElement("code")
-      code.className = "sub"
-      code.textContent = tool.install
-      name.append(document.createElement("br"), code)
-      const st = document.createElement("td")
-      const badge = document.createElement("span")
-      badge.className = "st " + tool.status
-      badge.textContent = tool.status
-      st.append(badge, document.createTextNode(tool.version ? " " + tool.version : ""))
-      const ver = document.createElement("td")
-      ver.textContent = [tool.version, tool.min ? "(min " + tool.min + ")" : ""].filter(Boolean).join(" ")
-      const via = document.createElement("td")
-      via.textContent = tool.via ?? ""
-      const at = document.createElement("td")
-      at.className = "sub"
-      at.textContent = tool.at ? new Date(tool.at).toLocaleString() : ""
-      const ovr = document.createElement("td")
-      ovr.append(overrideControls(tool))
-      if (tool.path) { const p = document.createElement("code"); p.textContent = tool.path; ovr.append(document.createElement("br"), p) }
-      if (tool.source === "local") manager.rowActions(ovr, tool.id)
-      tr.append(name, st, ver, via, at, ovr)
-      t.append(tr)
-    }
-    return t
-  }
-
-  function projectTable(projects) {
-    if (!projects || projects.length === 0) return null
-    const t = document.createElement("table")
-    const head = document.createElement("tr")
-    for (const h of ["项目 / 来源", "远端 / 本机目录", "Git / P4 工作区", "管理"]) {
-      const th = document.createElement("th")
-      th.textContent = h
-      head.append(th)
-    }
-    t.append(head)
-    for (const p of projects) {
-      const tr = document.createElement("tr")
-      const id = document.createElement("td")
-      const b = document.createElement("b")
-      b.textContent = p.id + (p.source === "local" ? " · 本机" : " · 团队")
-      id.append(b)
-      if (p.name) {
-        const span = document.createElement("span")
-        span.className = "sub"
-        id.append(document.createElement("br"), span)
-        span.textContent = p.name
-      }
-      const vcs = document.createElement("td")
-      const code = document.createElement("code")
-      code.textContent = [p.vcs ?? p.url, p.localPath].filter(Boolean).join("\n")
-      code.style.whiteSpace = "pre-wrap"
-      vcs.append(code)
-      const note = document.createElement("td")
-      note.className = "sub"
-      note.style.whiteSpace = "pre-wrap"
-      note.textContent = [p.kind, p.local?.status, p.local?.branch, p.local?.head?.slice(0, 12), p.p4?.port, p.p4?.client, p.p4?.stream ?? p.p4?.depotPath, p.note].filter(Boolean).join("\n")
-      const actions = document.createElement("td")
-      projectsManager.rowActions(actions, p)
-      tr.append(id, vcs, note, actions)
-      t.append(tr)
-    }
-    return t
-  }
-
-  function overrideControls(tool) {
-    const wrap = document.createElement("div")
-    wrap.className = "ovr"
-    const cur = draft[tool.id] ?? {}
-
-    const bin = document.createElement("input")
-    bin.type = "text"
-    bin.placeholder = "bin 覆盖路径"
-    bin.value = cur.bin ?? ""
-    bin.onchange = () => setDraft(tool.id, "bin", bin.value.trim() || undefined)
-
-    const en = document.createElement("label")
-    const cb = document.createElement("input")
-    cb.type = "checkbox"
-    cb.checked = cur.enabled !== false
-    cb.onchange = () => setDraft(tool.id, "enabled", cb.checked ? undefined : false)
-    en.append(cb, document.createTextNode("启用"))
-
-    const pin = document.createElement("select")
-    for (const [v, label] of [["", "自动"], ["present", "present"], ["configured", "configured"], ["outdated", "outdated"], ["missing", "missing"]]) {
-      const o = document.createElement("option")
-      o.value = v
-      o.textContent = label
-      pin.append(o)
-    }
-    pin.value = cur.status ?? ""
-    pin.onchange = () => setDraft(tool.id, "status", pin.value || undefined)
-
-    wrap.append(bin, en, pin)
-    return wrap
-  }
-
-  function setDraft(id, key, value) {
-    overrideDirty = true
-    const cur = draft[id] ?? {}
-    if (value === undefined) delete cur[key]
-    else cur[key] = value
-    if (Object.keys(cur).length === 0) delete draft[id]
-    else draft[id] = cur
-    msg.textContent = Object.keys(draft).length > 0 ? "有未保存的覆盖修改" : ""
-  }
-
-  async function saveOverrides() {
-    msg.textContent = "保存中…（options 变更会触发宿主重载与新探测，页面会自动刷新）"
-    try {
-      await api("/options", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ overrides: draft }),
-      })
-      overrideDirty = false
-      await pollUntil((t) => t !== (last?.checkedAt ?? null), 60)
-      await refresh()
-      msg.textContent = "已保存"
-    } catch (e) {
-      msg.textContent = "保存失败：" + (e?.message ?? e)
-    }
-  }
-
-  async function rerunProbe() {
-    msg.textContent = "探测中…"
-    try {
-      await api("/refresh", { method: "POST" })
-      await pollUntil((t) => t !== (last?.checkedAt ?? null), 60)
-      msg.textContent = ""
-      await refresh()
-    } catch (e) {
-      msg.textContent = "重跑失败：" + (e?.message ?? e)
-    }
-  }
-
-  async function pollUntil(changed, seconds) {
-    const deadline = Date.now() + seconds * 1000
-    while (Date.now() < deadline) {
-      await new Promise((r) => setTimeout(r, 1000))
-      let view
-      try {
-        view = await (await fetch("/state")).json()
-      } catch {
-        continue // 宿主重启窗口，service 短暂不可达
-      }
-      if (view?.session && view.session !== session) {
-        recoverSession()
-        throw new Error("插件已重载，正在恢复页面会话")
-      }
-      if (view && !view.error && changed(view.checkedAt ?? null)) {
-        last = view
-        return view
-      }
-    }
-    throw new Error("timeout")
-  }
-
-  // 只检查公开实例标识；不取新令牌、不重放操作，也不重绘未保存表单。
-  setInterval(async () => {
-    if (expired) return
-    try {
-      const view = await (await fetch("/state")).json()
-      if (view.session && view.session !== session) recoverSession()
-    } catch {} // 宿主重启窗口，下一次再检查
-  }, 5000)
-  await refresh()
-})()
-</script>
+<script src="/catalog-app.js"></script>
 </body>
 </html>

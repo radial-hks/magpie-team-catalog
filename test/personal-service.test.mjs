@@ -3,14 +3,16 @@ import { mkdtempSync, writeFileSync, rmSync, readFileSync } from "node:fs"
 import path from "node:path"
 import { tmpdir } from "node:os"
 import { startService } from "../lib/service.mjs"
+import { optionsRevision } from "../lib/ui-options.mjs"
 
-let dir, server, base, headers, triggers = 0, scans = 0
+let dir, server, base, headers, triggers = 0, scans = 0, persisted = []
 beforeAll(async () => {
   dir = mkdtempSync(path.join(tmpdir(), "tc-personal-http-"))
   writeFileSync(path.join(dir, "team.yaml"), "version: 1\ntools:\n  - id: team\n    kind: binary\n    install: team install\n")
   server = startService({ registry: path.join(dir, "team.yaml"), localRegistry: path.join(dir, "local.yaml"), statePath: path.join(dir, "state.json"), servicePort: 0 }, {
     readOptions: () => null,
     trigger: () => { triggers++ },
+    persistOptions: async options => { persisted.push(options) },
     scanGit: async body => ({ candidates: [{ kind: "git", localPath: body.root, suggestedId: "git-project", name: "Git project" }], warnings: [] }),
     scanP4: async body => { if (body.consent !== true) throw Error("consent required"); return { candidates: [], warnings: [] } },
     readP4: () => ({ port: "host:1666", user: "test", client: "workspace" }),
@@ -74,6 +76,18 @@ test("项目发现授权接口、Git/P4/P4CONFIG 与项目绑定保存", async (
   // team 是工具 ID，不是项目，不能绑定。
   const r = await fetch(base + "/local-registry", { method: "POST", headers, body: JSON.stringify({ registry: s.registry, revision: s.revision }) })
   expect(r.status).toBe(409)
+})
+
+test("GUI设置读取/保存有会话和revision校验，不写其它配置键", async () => {
+  expect((await fetch(base + "/ui-options")).status).toBe(403)
+  const s = await (await fetch(base + "/ui-options", { headers })).json()
+  expect(s.revision).toBe(optionsRevision(s.options))
+  const save = body => fetch(base + "/options", { method: "POST", headers, body: JSON.stringify(body) })
+  expect((await save({ revision: "stale", settings: { interval: 120 } })).status).toBe(409)
+  expect(persisted).toHaveLength(0)
+  expect((await save({ revision: s.revision, settings: { interval: 120 } })).status).toBe(200)
+  expect(persisted[0].interval).toBe(120)
+  expect(persisted[0].registry).toBe(s.options.registry)
 })
 
 test("页面包含编辑器入口与令牌，脚本可读且无动态 innerHTML", async () => {
