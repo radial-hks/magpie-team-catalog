@@ -153,4 +153,65 @@ describe("syncSkills（临时目录实测 IO）", () => {
     expect(r2.removed).toEqual(["hermes"])
     expect(existsSync(path.join(root, "foreign", "SKILL.md"))).toBe(true)
   })
+
+  test("方案 C：hand-over 后写 library 副本，共享点残留被清、异物不碰、sync 置位", () => {
+    // 初始：F3 写到共享点
+    syncSkills({ entries: [entry(tool({}), finding, true)], sourceRoot: src, skillRoot: root, prefix: "team-" })
+    expect(existsSync(path.join(root, "team-hermes", "SKILL.md"))).toBe(true)
+    // 模拟用户 hand-over：共享点副本被搬进 library（magpie 会保留内容/改名）
+    const lib = mkdtempSync(path.join(tmpdir(), "tc-sk-lib-"))
+    mkdirSync(path.join(lib, "team-hermes"), { recursive: true })
+    const moved = readFileSync(path.join(root, "team-hermes", "SKILL.md"), "utf8")
+    writeFileSync(path.join(lib, "team-hermes", "SKILL.md"), moved)
+    rmSync(path.join(root, "team-hermes"), { recursive: true, force: true })
+
+    // 下一轮：分流到 library（真实场景：CLI 升级使实测块变化）
+    const r1 = syncSkills({
+      entries: [entry(tool({}), { ...finding, version: "0.24.0" }, true)],
+      sourceRoot: src,
+      skillRoot: root,
+      prefix: "team-",
+      libraryDir: lib,
+    })
+    expect(r1.written).toEqual(["hermes"])
+    expect(r1.sync).toBe(true) // 内容有差 → 触发 sync
+    expect(existsSync(path.join(lib, "team-hermes", "SKILL.md"))).toBe(true)
+    expect(readFileSync(path.join(lib, "team-hermes", "SKILL.md"), "utf8")).toContain("0.24.0")
+    expect(existsSync(path.join(root, "team-hermes"))).toBe(false) // 不重建共享点副本
+
+    // 幂等：内容一致不再写、sync 不置位
+    const r2 = syncSkills({
+      entries: [entry(tool({}), { ...finding, version: "0.24.0" }, true)],
+      sourceRoot: src,
+      skillRoot: root,
+      prefix: "team-",
+      libraryDir: lib,
+    })
+    expect(r2.written).toEqual([])
+    expect(r2.sync).toBe(false)
+
+    // 禁用：library 副本不动（归 magpie 管），共享点无残留
+    const r3 = syncSkills({
+      entries: [entry(tool({}), finding, false)],
+      sourceRoot: src,
+      skillRoot: root,
+      prefix: "team-",
+      libraryDir: lib,
+    })
+    expect(r3.removed).toEqual([])
+    expect(existsSync(path.join(lib, "team-hermes", "SKILL.md"))).toBe(true)
+
+    // library 里异物（无标记）不碰
+    mkdirSync(path.join(lib, "team-foreign"), { recursive: true })
+    writeFileSync(path.join(lib, "team-foreign", "SKILL.md"), "---\nname: x\n---\nnot ours\n")
+    syncSkills({
+      entries: [entry(tool({ id: "foreign" }), finding, true)],
+      sourceRoot: src,
+      skillRoot: root,
+      prefix: "team-",
+      libraryDir: lib,
+    })
+    expect(readFileSync(path.join(lib, "team-foreign", "SKILL.md"), "utf8")).toContain("not ours")
+    rmSync(lib, { recursive: true, force: true })
+  })
 })
