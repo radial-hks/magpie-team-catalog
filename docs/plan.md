@@ -85,9 +85,10 @@ initialize→tools/list→tools/call 流程，与 Agent 侧 MCP 客户端同协�
   `page Team catalog`；
 - [x] 页面在 magpie 窗口正常渲染（实机 2026-11-15：带路页导航 → service 主界面，
   表格列出全部 4 个工具，均 present）；
-- [ ] 编辑覆盖保存后，下一个请求的索引按新覆盖过滤——机制已验证
-  （options.set 写 plugins.json → 宿主重载 → worker 重探测），页面端到端
-  待实机；
+- [x] 编辑覆盖保存后，下一个请求的索引按新覆盖过滤（实机 2026-11-15 双向验证：
+  窗口取消 gitnexus「启用」→ 保存 → `overrides:{"gitnexus":{"enabled":false}}`
+  落盘、index 键保留、索引只剩三个工具、state 转 disabled、checkedAt 前移；
+  重新勾选保存后 `overrides:{}`、索引恢复四个工具）；
 - [ ] 页面抛错显示「此页面已停止工作」，重试可恢复——magpie 内核自带
   错误边界（框架行为），待实机。
 
@@ -151,8 +152,8 @@ which / version 命令都用该条目的预算。
 
 | 编号 | 任务 | 状态 | 前置条件 |
 | --- | --- | --- | --- |
-| F1 | 单条目探测超时 `check.timeoutMs` | 实施中 | 无 |
-| F2 | 覆盖保存端到端实测（页面改一行 → 保存 → 索引变化） | 待实测 | 需在窗口里点一次 |
+| F1 | 单条目探测超时 `check.timeoutMs` | 已完成（3163fb3 / 6407e7b） | 无 |
+| F2 | 覆盖保存端到端实测（页面改一行 → 保存 → 索引变化） | 已完成（2026-11-15 实机双向） | 无 |
 | F3 | 注入位置可配（`injectPosition: head\|tail`，design 开放问题 2） | 待评估 | 需实测各 Agent 行为后再定默认值 |
 | M4-2 | 内部 npm 发布（`@team` scope 通道） | 待团队决策 | 通道/权限定下 |
 | M4-4 | 双机验证（win 机器） | 待团队决策 | win 机器可用时机 |
