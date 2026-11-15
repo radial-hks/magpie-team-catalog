@@ -76,9 +76,9 @@ Git 安装副本通过 magpie 管理更新。两种安装不要并存，以免�
 - [x] LICENSE：标准 MIT 文本。
 - [x] 源码入口与页面随仓库和 npm files 分发，无构建/install script 依赖。
 - [x] Git/#ref/npm/folder 身份解析保持稳定，更新不丢用户 options。
-- [x] 已提供 CI：Windows/Linux/macOS 测试与打包文件检查（远端任务结果需在推送后回读）。
+- [x] CI：Windows/Linux/macOS 测试与打包文件检查；公开分发提交的三个平台任务已成功。
 - [x] 所有者已将仓库改为 public，GitHub API 与未认证 raw 文件访问已确认。
-- [x] 设置 GitHub topic `magpie-plugin`；市場搜索结果仍需等待 GitHub 索引与 magpie 缓存刷新。
+- [x] 设置 GitHub topic `magpie-plugin`；市场搜索结果仍需等待 GitHub 索引与 magpie 缓存刷新。
 - [ ] 可选发布 tag、GitHub Release、npm 或社区推荐列表；需要单独授权与验收。
 
 ## 4. 离线 tgz / 发布前检查
@@ -119,8 +119,12 @@ check:package 使用 dry-run 校验入口、相对 imports、UI 脚本、registr
   隔离 SSH 未通过，Bun 1.3.9 本地 git+file 测试出现宿主自身崩溃，未认定为成功。
 - 以上 404 为改公开之前的私有安装结果，不是当前公开地址结论。
 - 公开后，独立 HOME/XDG 环境、移除 GitHub/npm token 环境变量，
-  `magpie plugin add github:radial-hks/magpie-team-catalog` 已成功；页面、middleware、
-  catalog/catalog_status 均加载。首次验证使用当时远端 0.1.0，0.2.0 分发完善推送后另验。
+  `magpie plugin add github:radial-hks/magpie-team-catalog` 已成功。
+  分发提交 `75f5ce3` 推送后，`github:radial-hks/magpie-team-catalog#main` 匿名安装
+  **0.2.0** 成功：页面、middleware、catalog/catalog_status 均加载；options 保存保留
+  自定义键，带 #main 的身份识别正常。
+- [GitHub Actions 43715234739](https://github.com/radial-hks/magpie-team-catalog/actions/runs/43715234739)
+  已回读为 success，Windows/Linux/macOS 三个平台的测试及实际包文件检查通过。
 - 匿名 GitHub topic 搜索已返回本仓库（1 条）。magpie 自身市场列表仍受刷新周期影响，
   topic 搜索成功不等于 GUI 卡片已即时出现，亦不代表官方审核。
 
