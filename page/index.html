@@ -6,38 +6,21 @@
 <title>团队目录</title>
 <style>
   :root { color-scheme: light dark; }
+  html, body { margin: 0; height: 100%; }
   body {
-    font: 13px/1.5 -apple-system, "SF Pro Text", "PingFang SC", "Microsoft YaHei", sans-serif;
-    margin: 16px 20px;
+    display: grid; place-items: center;
+    font: 13px/1.5 var(--magpie-font, -apple-system, "SF Pro Text", "PingFang SC", "Segoe UI", system-ui, sans-serif);
+    background: var(--magpie-bg, Canvas); color: var(--magpie-fg, CanvasText);
   }
-  h1 { font-size: 15px; margin: 0 0 4px; }
-  .sub { opacity: 0.6; font-size: 12px; margin: 0 0 12px; }
-  table { border-collapse: collapse; width: 100%; margin-bottom: 18px; }
-  th { text-align: left; font-weight: 500; opacity: 0.55; font-size: 12px; padding: 4px 8px 4px 0; }
-  td { padding: 4px 8px 4px 0; vertical-align: top; border-top: 1px solid color-mix(in srgb, currentColor 12%, transparent); }
-  code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px; }
-  .st { display: inline-block; padding: 1px 7px; border-radius: 9px; font-size: 11px; border: 1px solid color-mix(in srgb, currentColor 30%, transparent); }
-  .st.present, .st.configured { color: #1a7f37; }
-  .st.outdated { color: #b45309; }
-  .st.missing { color: #b91c1c; }
-  .st.disabled { opacity: 0.5; }
-  .st.unknown { opacity: 0.6; }
-  input[type="text"] { width: 160px; }
-  select, input { font: inherit; }
-  .bar { display: flex; gap: 8px; align-items: center; margin: 10px 0; flex-wrap: wrap; }
-  button { font: inherit; padding: 4px 12px; border-radius: 7px; border: 1px solid color-mix(in srgb, currentColor 35%, transparent); background: transparent; cursor: pointer; }
-  button.primary { background: color-mix(in srgb, currentColor 10%, transparent); }
-  .msg { font-size: 12px; opacity: 0.75; }
-  .err { color: #b91c1c; }
-  .ovr { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
-  .idx { font-family: ui-monospace, Menlo, monospace; font-size: 12px; opacity: 0.7; white-space: pre-wrap; border: 1px dashed color-mix(in srgb, currentColor 25%, transparent); padding: 8px 10px; margin-bottom: 16px; }
+  .box { text-align: center; color: var(--magpie-muted, GrayText); max-width: 520px; padding: 0 16px; }
+  .box p { margin: 6px 0; }
+  .box button { margin-top: 8px; font: inherit; padding: 4px 14px; border-radius: 7px; border: 1px solid color-mix(in srgb, currentColor 35%, transparent); background: transparent; cursor: pointer; }
+  .box b { display: block; color: var(--magpie-fg, CanvasText); font-size: 14px; margin-bottom: 4px; }
 </style>
 </head>
 <body>
-<h1>团队目录</h1>
-<p class="sub">本机实测态 · 团队声明 registry.yaml · 覆盖仅本机生效</p>
-<div id="app">加载中…</div>
+<div class="box"><b>团队目录</b><div id="said">正在连接到本地目录服务…</div></div>
 <script src="_magpie/bridge.js"></script>
-<script src="app.js" defer></script>
+<script src="boot.js"></script>
 </body>
 </html>

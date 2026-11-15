@@ -68,10 +68,14 @@ initialize→tools/list→tools/call 流程，与 Agent 侧 MCP 客户端同协�
 
 ## M3 · 窗口页
 
-1. `magpie.page`：目录表格（工具/项目两组），列：名称、状态、版本、min、探测时间；
-2. Bun 模块起本地 HTTP service（`magpie.page.service`），页面经 `magpie.service` 读 `catalog-state.json` 内容；
-3. 行内编辑覆盖 → `magpie.options.set` 写回；
-4. 探测"立即重跑"按钮（触发一次全量刷新）。
+1. `magpie.page`：带路页（`index.html` + `boot.js`）——沙箱 iframe 无网络权限，
+   唯一能做的联网动作是导航自身；`boot.js` 拿 service 地址、把主题编码进
+   查询串后 `location.replace` 过去；
+2. Bun 模块起本地 HTTP service（`magpie.page.service`）：主界面 `main.html`
+   由 service 的 GET / 直接提供，数据走同源的 `/state` `/options`；
+3. 行内编辑覆盖 → POST `/options`（service 代执 magpie plugin options CLI，
+   与 worker 发布同一条 sanctioned 通道）写回；
+4. 探测“立即重跑”按钮（触发一次全量刷新）。
 
 **验收标准：**（2026-11-15：数据链路已在沙箱实测；GUI 渲染项待桌面窗口实机验证）
 
@@ -90,8 +94,9 @@ initialize→tools/list→tools/call 流程，与 Agent 侧 MCP 客户端同协�
 
 - service 端口必须从 `options.servicePort` 读：magpie 在不服务页面的进程
   （如 plugin update）会把该 option 改写到空闲端口，避免与常驻实例撞端口；
-  桌面模式下页面回退直连 `127.0.0.1:<servicePort>`，web 模式走 `magpie.service`
-  反向代理；
+  桌面模式下带路页回退直连 `127.0.0.1:<servicePort>`，web 模式走 `magpie.service`
+  反向代理；绑定失败（宿主重启期间旧进程还占着端口，retire 窗口最长 10 分钟）
+  时后台每 5s 重试、最长 15 分钟；
 - 【实装踩坑】worker 发布索引时不能以宿主传入的 options 为基准——无页面
   进程里 servicePort 已被改写成内部值，写回会污染用户配置（实测发生过：
   plugins.json 里混入一次性的 51849）。发布基准改为只读 plugins.json 里

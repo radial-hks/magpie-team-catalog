@@ -97,6 +97,29 @@ describe("service HTTP（真 Bun.serve）", () => {
     expect(changed).toBe(true)
   })
 
+  test("GET / 出带路页导航过去的主界面（service 自己服务）", async () => {
+    const r = await fetch(`${base}/`)
+    expect(r.status).toBe(200)
+    expect(r.headers.get("access-control-allow-origin")).toBe("*")
+    expect(r.headers.get("content-type")).toContain("text/html")
+    const html = await r.text()
+    // 主界面是 service 端的，不依赖沙箱页的网络权限（官方带路页模式）
+    expect(html).toContain("团队目录")
+    expect(html).toContain('fetch("/state")')
+  })
+
+  test("POST /options 校验 body：非对象拒绝，不写盘", async () => {
+    for (const bad of [{}, { overrides: [] }, { overrides: null }, { overrides: "x" }]) {
+      const r = await fetch(`${base}/options`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(bad),
+      })
+      expect(r.status).toBe(500)
+      expect((await r.json()).error).toContain("overrides")
+    }
+  })
+
   test("默认端口常量与 package.json 声明一致", () => {
     expect(DEFAULT_SERVICE_PORT).toBe(3969)
   })

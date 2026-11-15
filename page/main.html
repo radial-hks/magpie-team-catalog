@@ -1,42 +1,100 @@
-// app.js — 团队目录页面（沙箱 iframe，classic script）。
-// 数据走本插件自己的 service（magpie.service 或直连 127.0.0.1:<servicePort>），
-// 覆盖编辑经 magpie.options.set 写回 plugins.json 的本插件 options。
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>团队目录</title>
+<style>
+  :root {
+    --bg: Canvas; --fg: CanvasText; --muted: GrayText;
+    --border: color-mix(in srgb, CanvasText 15%, transparent);
+    color-scheme: light dark;
+  }
+  body {
+    margin: 16px 20px;
+    font: 13px/1.5 -apple-system, "SF Pro Text", "PingFang SC", "Segoe UI", system-ui, sans-serif;
+    background: var(--bg); color: var(--fg);
+  }
+  h1 { font-size: 15px; margin: 0 0 4px; }
+  .sub { color: var(--muted); font-size: 12px; margin: 0 0 12px; }
+  table { border-collapse: collapse; width: 100%; margin-bottom: 18px; }
+  th { text-align: left; font-weight: 500; color: var(--muted); font-size: 12px; padding: 4px 8px 4px 0; }
+  td { padding: 4px 8px 4px 0; vertical-align: top; border-top: 1px solid var(--border); }
+  code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px; }
+  .st { display: inline-block; padding: 1px 7px; border-radius: 9px; font-size: 11px; border: 1px solid var(--border); }
+  .st.present, .st.configured { color: #1a7f37; }
+  .st.outdated { color: #b45309; }
+  .st.missing { color: #b91c1c; }
+  .st.disabled { opacity: 0.5; }
+  .st.unknown { opacity: 0.6; }
+  input[type="text"] { width: 160px; }
+  select, input, button { font: inherit; color: var(--fg); }
+  .bar { display: flex; gap: 8px; align-items: center; margin: 10px 0; flex-wrap: wrap; }
+  button { padding: 4px 12px; border-radius: 7px; border: 1px solid color-mix(in srgb, var(--fg) 35%, transparent); background: transparent; cursor: pointer; }
+  button.primary { background: color-mix(in srgb, var(--fg) 10%, transparent); }
+  .msg { font-size: 12px; color: var(--muted); }
+  .err { color: #b91c1c; }
+  .ovr { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .idx { font-family: ui-monospace, Menlo, monospace; font-size: 12px; color: var(--muted); white-space: pre-wrap; border: 1px dashed var(--border); padding: 8px 10px; margin-bottom: 16px; }
+  label { display: inline-flex; gap: 4px; align-items: center; }
+</style>
+</head>
+<body>
+<h1>团队目录</h1>
+<p class="sub">本机实测态 · 团队声明 registry.yaml · 覆盖仅本机生效</p>
+<div id="app">加载中…</div>
+<script>
+// 由插件的 service 直接服务（127.0.0.1，框架仍是沙箱 opaque origin，
+// 所有请求带 CORS）。数据：GET /state、GET /options；写回：POST /options
+//（service 代执 magpie plugin options，触发宿主重载与新探测）、POST /refresh。
 (async () => {
-  const DEFAULT_PORT = 3969
-  await magpie.ready
-  const opts = (await magpie.options.get()) ?? {}
-  const svc = magpie.service || `http://127.0.0.1:${opts.servicePort ?? DEFAULT_PORT}`
-
   const app = document.getElementById("app")
-  // 覆盖草稿：{id: {bin?, enabled?, status?}}；保存时整体写入
-  let draft = structuredClone(opts.overrides ?? {})
-  let last = null
   const msg = document.createElement("div")
   msg.className = "msg"
+
+  // 主题：带路页经查询串带来
+  try {
+    const q = new URLSearchParams(location.search).get("t")
+    if (q) {
+      const t = JSON.parse(decodeURIComponent(escape(atob(q))))
+      if (t.tokens) for (const [k, v] of Object.entries(t.tokens)) {
+        if (typeof v === "string" && v) document.documentElement.style.setProperty("--" + k, v)
+      }
+      if (t.dark) document.documentElement.style.colorScheme = "dark"
+    }
+  } catch {}
+
+  let draft = {}
+  let last = null
 
   async function refresh() {
     let view
     try {
-      view = await (await fetch(`${svc}/state`)).json()
+      view = await (await fetch("/state")).json()
     } catch (e) {
       app.textContent = ""
-      app.append(errLine(`service 不可达（${svc}）：${e?.message ?? e}`))
+      const p = document.createElement("p")
+      p.className = "err msg"
+      p.textContent = "service 暂不可达（可能在随宿主重启），稍后自动重试…"
+      app.append(p)
+      setTimeout(refresh, 3000)
       return
     }
     if (view.error) {
       app.textContent = ""
-      app.append(errLine(view.error))
+      const p = document.createElement("p")
+      p.className = "err msg"
+      p.textContent = view.error
+      app.append(p)
       return
     }
     last = view
+    let opts = {}
+    try {
+      opts = (await (await fetch("/options")).json()) ?? {}
+    } catch {}
+    draft = structuredClone(opts.overrides ?? {})
     render(view)
-  }
-
-  function errLine(text) {
-    const p = document.createElement("p")
-    p.className = "err msg"
-    p.textContent = text
-    return p
   }
 
   function render(view) {
@@ -56,7 +114,7 @@
     if (view.index) {
       const pre = document.createElement("div")
       pre.className = "idx"
-      pre.textContent = `当前注入索引：\n${view.index}`
+      pre.textContent = "当前注入索引：\n" + view.index
       app.append(pre)
     }
 
@@ -66,7 +124,7 @@
 
     const sub = document.createElement("p")
     sub.className = "sub"
-    sub.textContent = view.checkedAt ? `探测时间：${view.checkedAt}` : "尚未探测"
+    sub.textContent = view.checkedAt ? "探测时间：" + view.checkedAt : "尚未探测"
     app.append(sub)
   }
 
@@ -97,11 +155,11 @@
       name.append(document.createElement("br"), code)
       const st = document.createElement("td")
       const badge = document.createElement("span")
-      badge.className = `st ${tool.status}`
+      badge.className = "st " + tool.status
       badge.textContent = tool.status
-      st.append(badge, document.createTextNode(tool.version ? ` ${tool.version}` : ""))
+      st.append(badge, document.createTextNode(tool.version ? " " + tool.version : ""))
       const ver = document.createElement("td")
-      ver.textContent = [tool.version, tool.min ? `(min ${tool.min})` : ""].filter(Boolean).join(" ")
+      ver.textContent = [tool.version, tool.min ? "(min " + tool.min + ")" : ""].filter(Boolean).join(" ")
       const via = document.createElement("td")
       via.textContent = tool.via ?? ""
       const at = document.createElement("td")
@@ -150,7 +208,6 @@
     return t
   }
 
-  /** 行内覆盖控件：bin 文本框、启用开关、status 钉死选择。只改草稿。 */
   function overrideControls(tool) {
     const wrap = document.createElement("div")
     wrap.className = "ovr"
@@ -189,40 +246,36 @@
     else cur[key] = value
     if (Object.keys(cur).length === 0) delete draft[id]
     else draft[id] = cur
-    const dirty = JSON.stringify(draft) !== JSON.stringify(opts.overrides ?? {})
-    msg.textContent = dirty ? "有未保存的覆盖修改" : ""
+    msg.textContent = Object.keys(draft).length > 0 ? "有未保存的覆盖修改" : ""
   }
 
   async function saveOverrides() {
-    msg.textContent = "保存中…"
+    msg.textContent = "保存中…（options 变更会触发宿主重载与新探测，页面会自动刷新）"
     try {
-      const fresh = (await magpie.options.get()) ?? {}
-      await magpie.options.set({ ...fresh, overrides: draft })
-      msg.textContent = "已保存；options 变更会触发宿主重载与新索引（几秒后自动刷新）"
-      opts.overrides = draft
-      setTimeout(pollAfterSave, 2000)
+      const r = await fetch("/options", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ overrides: draft }),
+      })
+      if (!r.ok) throw new Error(await r.text())
+      await pollUntil((t) => t !== (last?.checkedAt ?? null), 60)
+      await refresh()
+      msg.textContent = "已保存"
     } catch (e) {
-      msg.textContent = `保存失败：${e?.message ?? e}`
+      msg.textContent = "保存失败：" + (e?.message ?? e)
     }
   }
 
   async function rerunProbe() {
     msg.textContent = "探测中…"
     try {
-      await fetch(`${svc}/refresh`, { method: "POST" })
-      await pollUntil(t => t !== (last?.checkedAt ?? null), 60)
+      await fetch("/refresh", { method: "POST" })
+      await pollUntil((t) => t !== (last?.checkedAt ?? null), 60)
       msg.textContent = ""
       await refresh()
     } catch (e) {
-      msg.textContent = `重跑失败：${e?.message ?? e}`
+      msg.textContent = "重跑失败：" + (e?.message ?? e)
     }
-  }
-
-  async function pollAfterSave() {
-    try {
-      await pollUntil(t => t !== (last?.checkedAt ?? null), 60)
-      await refresh()
-    } catch {}
   }
 
   async function pollUntil(changed, seconds) {
@@ -231,9 +284,9 @@
       await new Promise((r) => setTimeout(r, 1000))
       let view
       try {
-        view = await (await fetch(`${svc}/state`)).json()
+        view = await (await fetch("/state")).json()
       } catch {
-        continue // options.set 触发宿主重启，service 短暂不可达
+        continue // 宿主重启窗口，service 短暂不可达
       }
       if (view && !view.error && changed(view.checkedAt ?? null)) {
         last = view
@@ -245,3 +298,6 @@
 
   await refresh()
 })()
+</script>
+</body>
+</html>

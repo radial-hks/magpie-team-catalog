@@ -32,9 +32,9 @@
 | `lib/inject.mjs` | 各协议 system 注入（anthropic/chat/responses/gemini，纯函数） |
 | `lib/cycle.mjs` | 一轮刷新的编排：跨进程锁、state 原子写、经 magpie CLI 发布索引 |
 | `lib/tool.mjs` | `catalog` 工具：搜索（id/名称/用法）与详情（docs 全文 + 按需 probe） |
-| `lib/service.mjs` | 窗口页的本地 service（127.0.0.1，端口读 options.servicePort）+ 页面视图纯函数 |
-| `page/` | 窗口页：目录表格、行内覆盖编辑（magpie.options.set 写回）、立即重跑 |
-| `test/` | bun test（纯函数全覆盖 + 假 CLI 探测/工具/service 实测，共 57 项） |
+| `lib/service.mjs` | 窗口页的本地 service（127.0.0.1，端口读 options.servicePort）：出主界面 + `/state` `/options` `/refresh`，port 占用时后台重试 |
+| `page/` | 带路页：`index.html` 在外壳 + `boot.js` 交接主题后 `location.replace` 到 service；主界面 `main.html` 由 service 提供 |
+| `test/` | bun test（纯函数全覆盖 + 假 CLI 探测/工具/service 实测，共 65 项） |
 
 测试：`bun test`；沙箱验收步骤见 plan.md M1 的验收标准。
 
