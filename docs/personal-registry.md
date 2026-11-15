@@ -40,7 +40,7 @@
 
 界面保存规范 JSON（YAML 子集），也支持手工维护 YAML；已有字段如 platform/check.probe
 会保留。详细文档可写在 `documentation` 内，或用 `doc` 相对个人文件目录引用 Markdown。
-页面增删改面向 CLI；个人项目地址也可在文件的 projects 中维护。
+页面也支持 Git/P4 本机项目增删改、发现及团队项目绑定，见 [local-projects.md](local-projects.md)。
 
 ## ueb 示例
 

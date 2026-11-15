@@ -1,7 +1,7 @@
 {
   "name": "magpie-team-catalog",
   "version": "0.1.0",
-  "description": "Team catalog: internal CLI tools and project addresses in one registry, probed per machine, injected into every agent's system prompt",
+  "description": "Team and personal CLI catalog with local Git/P4 projects, GUI registration and paginated read-only MCP discovery",
   "type": "module",
   "main": "./index.mjs",
   "files": [

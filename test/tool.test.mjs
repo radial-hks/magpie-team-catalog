@@ -67,7 +67,7 @@ describe("匹配与响应组装（纯）", () => {
   })
 
   test("projectJSON 字段", () => {
-    expect(projectJSON(reg.projects[0])).toEqual({ id: "billing", name: "计费服务", vcs: "git@github.com:team/billing.git" })
+    expect(projectJSON(reg.projects[0])).toEqual({ id: "billing", name: "计费服务", kind: "git", vcs: "git@github.com:team/billing.git" })
   })
 })
 
@@ -114,10 +114,10 @@ describe("catalogTool（IO：registry/state/docs/probe）", () => {
 
   test("详情：doc 全文 + 按需 probe 通过 → configured", async () => {
     writeFileSync(path.join(dir, "state.json"), JSON.stringify({
-      checkedAt: 1,
+      checkedAt: Date.now(),
       tools: { "deploy-cli": { status: "present", version: "1.2.3" }, "perf-diag": { status: "missing" } },
     }))
-    const out = await catalogTool({ detail: "deploy-cli" }, opts(), {})
+    const out = await catalogTool({ detail: "deploy-cli", check: true }, opts(), {})
     expect(out.status).toBe("configured")
     expect(out.probe).toBe("ok")
     expect(out.doc).toContain("详细文档正文")

@@ -11,6 +11,9 @@ beforeAll(async () => {
   server = startService({ registry: path.join(dir, "team.yaml"), localRegistry: path.join(dir, "local.yaml"), statePath: path.join(dir, "state.json"), servicePort: 0 }, {
     readOptions: () => null,
     trigger: () => { triggers++ },
+    scanGit: async body => ({ candidates: [{ kind: "git", localPath: body.root, suggestedId: "git-project", name: "Git project" }], warnings: [] }),
+    scanP4: async body => { if (body.consent !== true) throw Error("consent required"); return { candidates: [], warnings: [] } },
+    readP4: () => ({ port: "host:1666", user: "test", client: "workspace" }),
     scanNpm: async () => { scans++; return { root: dir, candidates: [{ package: "@team/ueb", bin: "ueb", suggestedId: "ueb", version: "1.0.0" }], warnings: [] } },
   })
   base = `http://127.0.0.1:${server.port}`
@@ -21,7 +24,7 @@ afterAll(() => { server.stop(true); rmSync(dir, { recursive: true, force: true }
 
 test("新增接口及现有 POST 无页面令牌均拒绝；DNS rebinding 拒绝", async () => {
   for (const route of ["/local-registry", "/npm-candidates"]) expect((await fetch(base + route)).status).toBe(403)
-  for (const route of ["/refresh", "/options", "/local-registry"]) expect((await fetch(base + route, { method: "POST" })).status).toBe(403)
+  for (const route of ["/refresh", "/options", "/local-registry", "/project-discovery"]) expect((await fetch(base + route, { method: "POST" })).status).toBe(403)
   expect((await fetch(base + "/state", { headers: { host: "evil.example" } })).status).toBe(403)
   expect(triggers).toBe(0)
   expect(scans).toBe(0)
@@ -59,6 +62,20 @@ test("HTTP 保存/编辑/删除个人 CLI，团队冲突/过期修订拒绝且�
   expect(triggers).toBe(3)
   expect(JSON.parse(readFileSync(path.join(dir, "local.yaml"), "utf8")).tools).toEqual([])
 })
+test("项目发现授权接口、Git/P4/P4CONFIG 与项目绑定保存", async () => {
+  const post = body => fetch(base + "/project-discovery", { method: "POST", headers, body: JSON.stringify(body) })
+  const git = await (await post({ kind: "git", root: dir })).json()
+  expect(git.candidates[0].kind).toBe("git")
+  expect((await post({ kind: "p4", port: "host:1666", user: "test" })).status).toBe(422)
+  expect((await post({ kind: "p4", port: "host:1666", user: "test", consent: true })).status).toBe(200)
+  expect((await (await post({ kind: "p4-config", file: "file" })).json()).config.client).toBe("workspace")
+  const s = await (await fetch(base + "/local-registry", { headers })).json()
+  s.registry.projectBindings = { team: { localPath: dir } }
+  // team 是工具 ID，不是项目，不能绑定。
+  const r = await fetch(base + "/local-registry", { method: "POST", headers, body: JSON.stringify({ registry: s.registry, revision: s.revision }) })
+  expect(r.status).toBe(409)
+})
+
 test("页面包含编辑器入口与令牌，脚本可读且无动态 innerHTML", async () => {
   const response = await fetch(base, { headers: { origin: "https://evil.example" } })
   expect(response.headers.get("access-control-allow-origin")).toBe(null)
@@ -67,6 +84,8 @@ test("页面包含编辑器入口与令牌，脚本可读且无动态 innerHTML"
   expect(html).toContain("function createCatalogManager")
   expect(html).not.toContain('<script src="/catalog-ui.js">')
   expect(html).toContain("function createCatalogAPI")
+  expect(html).toContain("function createProjectManager")
+  expect(html).toContain("发现 P4 工作区")
   expect(html).not.toContain('<script src="/session-client.js">')
   expect(html).not.toContain("__CATALOG_TOKEN__")
   expect(html).not.toContain("__CATALOG_SESSION__")

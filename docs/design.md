@@ -1,6 +1,7 @@
 # 设计文档 · magpie-team-catalog
 
-版本：v2（2026-11-15，随 F1–F4 实施同步；M1–M4 与 F1–F4 均已实现，见 plan.md）
+版本：v3（2026-11-15，本机 CLI/Git/P4 与 MCP 核心完成）。历史 M/F 分期见 plan.md，
+当前验收与部署边界见 [milestone-projects-mcp.md](milestone-projects-mcp.md)。
 
 ## 1. 背景与问题
 
@@ -18,7 +19,7 @@ Agent 普及后多出第三个需求：**让 Agent 在任何机器上开箱即�
         │ 拉取                                        │ 拉取（options.skillsRepo）
 Bun 宿主模块 ──本机探测──> catalog-state.json（本机实测态）
         │                        │
-        │ tool: catalog          │ skill: 团队正文 + 实测块 → SKILL.md 落盘（主路径，F3/F4）
+        │ tool: catalog/status   │ skill: 团队正文 + 实测块 → SKILL.md 落盘（主路径，F3/F4）
         │                        │        └─ hand-over 后改维护 magpie library 副本 + library sync
         │ middleware: 索引注入 system prompt（回退，injectIndex 才生效）
         ▼
@@ -26,7 +27,8 @@ Bun 宿主模块 ──本机探测──> catalog-state.json（本机实测态�
         │
    所有 Agent（magpie 现成的工具分发 / MCP 路由）
         +
-   magpie.page 窗口页：人看的目录表格 + 覆盖编辑
+   magpie.page 窗口页：CLI/项目注册 + Git/P4 发现 + 本机覆盖/绑定
+   个人 registry（插件目录外）与团队声明合并；不自动修改 Git/P4
 ```
 
 ## 2. Non-goals
@@ -38,13 +40,15 @@ Bun 宿主模块 ──本机探测──> catalog-state.json（本机实测态�
 
 ## 3. 配置分层（要求 1：易于用户自行配置）
 
-复用 magpie 插件机制现成的三层，解析顺序 **用户覆盖 > 团队声明 > 自动探测**（同 git config / mise 的心智模型）：
+解析顺序：**团队 registry + 个人 registry / projectBindings → 平台声明 → 本机 overrides → 探测快照**。
+团队/个人 ID 冲突不能静默覆盖，团队项目本机绑定只补路径/P4 上下文。
 
 | 层 | 存放位置 | 维护者 | 内容 |
 | --- | --- | --- | --- |
 | 团队声明 | catalog git 仓库的 `registry.yaml` | 团队，PR 审核 | 工具 id、类型、安装命令、探测规则、版本下限、项目地址 |
 | 建议默认 | 插件包 `package.json` 的 `"magpie": {"options": {…}}` | 插件作者 | registry 仓库地址、检查周期等 |
 | 用户覆盖 | 本机 `plugins.json` 中该插件项的 `options` | 每个用户 | 路径覆盖、禁用条目、状态钉死 |
+| 个人注册/绑定 | 插件状态目录 `local-registry.yaml`（可自定义） | 用户确认 | CLI、Git/P4 项目、团队项目本机路径/Client |
 
 用户覆盖示例：
 
@@ -59,7 +63,8 @@ Bun 宿主模块 ──本机探测──> catalog-state.json（本机实测态�
 }
 ```
 
-配置变更触发宿主 reload 是 magpie 现成行为，不自建热加载。窗口页（M3）通过 `magpie.options.get/set` 提供表单式编辑，降低手编 JSON 的门槛。
+options 变更经 magpie CLI 触发宿主 reload；个人文件经本地 service 原子保存并触发 worker，
+不改团队仓库。页面内联脚本、会话令牌和公开实例标识用于沙箱加载/过期恢复，细节见 personal-registry.md。
 
 ## 4. 数据源：registry.yaml
 
@@ -97,7 +102,7 @@ unknown ──探测──> missing ──binary found──> present ──prob
 **探测只能证明"这个安装途径下该类型存在"，不能证明"用户注册/使用了该工具"。** 因此：
 
 - kind 探测（npm/pipx/brew/PATH）的结果上限是 `present`；
-- 只有工具自己的 probe 命令（如 `deploy-cli whoami`）通过才升到 `configured`，且 probe 是**按需触发**（Agent 查详情 / 页面打开时），不进周期任务；
+- 只有声明的 probe 命令通过才可能升到 `configured`；MCP 必须显式 `detail + check:true`，默认详情/页面查询不执行 probe，不写回周期状态；
 - 用户可用 `"status": "present"` 钉死状态，跳过探测；
 - 对外（索引、工具返回）永远附带状态，不把 `present` 说成"已配置"。
 
@@ -105,11 +110,13 @@ unknown ──探测──> missing ──binary found──> present ──prob
 
 探测跑在 **Bun 宿主**里——middleware 所在的 moejs 引擎没有定时器和 child_process，干不了这活，这是两个模块分工的根因：
 
-- 按类型探测：npm（`npm ls -g --json`）、pipx（`pipx list --json`）、brew（`brew list --versions`）、PATH（`which` / `where.exe`）、以及用户覆盖指定的绝对路径；
+- 按类型探测：npm/pipx/brew 清单、PATH 与绝对路径；Windows 直接按 PATH/PATHEXT 查找原生/.cmd/.bat，批处理单独安全执行；package 可与 bin 不同；
 - 每项命令 5s 超时；整体并发上限 8，避免一排 CLI 卡住宿主；
 - 周期：加载时全量 + 每 15 分钟刷新（可用 options 调整）；
 - 结果 + 时间戳缓存到 magpie 配置目录下插件自己的 `catalog-state.json`；
-- 版本解析：`check.version` 的输出取首个 semver 片段，解析失败不算错误（仍为 `present`）。
+- 版本解析：Perforce Rev 行优先，其余取首个 semver，解析失败仍为 present；
+- Git/P4 项目路径和本机元数据检查见 local-projects.md；周期不访问 P4 server/Git remote。
+  指纹识别注册身份变化，MCP 明确快照是否过期。
 
 ## 6. Agent 暴露（要求 2）
 
@@ -117,7 +124,9 @@ unknown ──探测──> missing ──binary found──> present ──prob
 
 OpenCode `tool` 钩子，经 magpie 汇入 `/mcp/magpie/tools`，所有支持 MCP 的 Agent 可调；开 MCP 路由的 Agent 直接在路由里看到（`<插件短名>__<工具>`）。工具清单：
 
-- `catalog`：按关键词 / id 搜索，返回条目 + 当前本机状态；带 `detail` 参数时读 `docs/<id>.md` 返回用法全文。
+- `catalog`：缓存只读的 CLI / Git / P4 项目发现，支持关键词、类型/来源/Client/路径筛选和分页（默认20条简略列表）；精确 detail 返回条目及分段文档。默认不执行 probe，显式 check=true 才进行声明的只读检查。
+- `catalog_status`：轻量目录概览、数量/状态分布、快照是否过期和能力边界。
+- contract、兼容性调整、IO/安全边界与调用示例见 [mcp-design.md](mcp-design.md)。
 
 返回示例：
 
@@ -179,7 +188,7 @@ service（`magpie.page.service`，`lib/service.mjs`）：主界面由 service �
 - **只读（对探测对象）**：catalog 工具与 middleware 都不安装、不写 Agent 配置、不修改探测对象；
 - **skill 写入有边界**（F3/F4）：只写 `skillRoot`（默认 `~/.agents/skills`）与 hand-over 后的 library 副本，且只碰带 `<!-- team-catalog:managed -->` 标记的文件；library 里无标记的 skill 一律不碰；
 - **fail-open**：探测挂了当 missing，middleware 挂了原请求直过，skill 同步失败不影响探测与索引，索引缺失不报错；
-- **可整体关闭**：`magpie plugin off team-catalog` 后索引、工具、页面全部消失，`plugins.json` / `catalog-state.json` 之外零残留；移除插件用 `magpie plugin rm`；
+- **可整体关闭**：停止目录工具与同步；个人注册、状态/缓存、托管 Skill 按需保留/手动清理，不卸载 CLI 或删除项目目录；
 - **无密钥**：registry 与 state 文件里只有地址、命令、版本号；插件以用户权限在宿主里运行（magpie 的通用约束），探测命令来自 PR 审核过的 registry + 用户本地覆盖，`check` 里的命令字段在 schema 层面限制为已声明的模式（bin + 固定参数数组），不允许任意 shell 字符串。
 
 ## 8. 与现成方案的关系

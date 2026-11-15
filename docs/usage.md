@@ -58,6 +58,12 @@ bin 元数据，由用户选择并补充说明后才注册/探测。个人文件
 宿主重载后，新页面会检测会话变化并自动恢复；若有未保存修改则保留输入并
 提示重新加载，不重放写操作。旧版 GUI 页首次升级需重新打开。
 
+## 本机 Git / P4 项目（新增）
+
+项目区域支持新增本机项目、发现 Git 目录、发现 P4 工作区，以及为团队项目绑定
+本机路径/Client。周期只检查本地目录和 Git 元数据；P4 服务器查询须在发现窗口
+明确确认。保存/删除注册不 clone、sync、提交或删除目录，详见 [local-projects.md](local-projects.md)。
+
 ## 三、三条使用路径
 
 ### 3.1 只想让 Agent 能查（最小可用）
@@ -65,9 +71,14 @@ bin 元数据，由用户选择并补充说明后才注册/探测。个人文件
 不需要任何 `skill*` 选项。Agent 调 `catalog` 工具：
 
 ```text
-catalog({query: "部署"})      → 命中条目的 id/名称/用法/本机状态
-catalog({detail: "deploy-cli"}) → 用法全文 + docs + 按需实测（probe 通过 → configured）
+catalog_status({})          → 数量、状态分布与快照新鲜度
+catalog({query: "部署"})      → 简略分页（默认20条），按 nextOffset 续页
+catalog({detail: "deploy-cli"}) → 详情 + 分段 docs（默认不执行 CLI）
+catalog({detail: "deploy-cli", check: true}) → 明确按需 probe，通过才可能 configured
 ```
+
+Git/P4 项目支持 type/project、kind、client、port、path 等筛选；完整 MCP contract、
+分页/文档读取及兼容性调整见 [mcp-design.md](mcp-design.md)。
 
 ### 3.2 让 Agent 按需读 skill（推荐）
 
@@ -171,14 +182,18 @@ magpie library skill router on     # 可选：聚合入口
 
 | 现象 | 排查 |
 | --- | --- |
-| Agent 看不到任何工具 | `catalog({})` 是否返回条目；再看 `injectIndex` 是否开（回退形态才靠注入） |
+| Agent 看不到工具 | 检查插件“交给智能体”与 MCP 路由；`catalog_status({})`/`catalog({})` 能否调用。injectIndex 只影响回退提示词，不负责 MCP 可见性 |
+| 列表少于实际条目 | 默认分页20条，按 pagination.nextOffset 续页；使用 type/kind/client/path 缩小范围 |
+| MCP 快照过期 / registry 不可读 | 查看 meta/code，等待后台刷新；远端只读缓存需先完成一轮，切换来源可能需独立 cacheDir |
+| GUI 页面会话过期 | 新页面自动恢复；未保存修改时提示重载并保留输入，旧版页首次升级需重新打开 |
 | skill 没生成 | `skillExport`/`skillsRepo` 是否设；`skillsRepo` 里有没有 `skills/<id>/SKILL.md`；worker 日志 `skill sync skipped:` 原因 |
 | 版本号缺失 | 该命令输出里没有 semver（如 `weknora dev (commit none)`），属探测语义；或超时（可加 `check.timeoutMs`） |
 | 状态全部 unknown | `catalog-state.json` 不存在/不可读，等一轮探测或看 worker 日志 |
 | 索引不更新 | `magpie plugin options` 是否被无页面进程改写；发布基准取 `plugins.json` 原值 |
 | 端口占用 | 宿主重启窗口会占住 service 端口，插件后台每 5 秒重试，最长 15 分钟 |
 
-日志：worker 与 service 都写 stderr（`team-catalog: …`）。magpie 本身不写日志文件。
+日志：worker 与 service 使用 stderr（`team-catalog: …`）；通过宿主支持的
+`magpie log` 查看/导出日志。detached worker 默认 stdio=ignore，不应假定每轮输出均被宿主捕获。
 
 ## 六、关闭与卸载
 

@@ -118,6 +118,16 @@ describe("loadRegistry", () => {
     expect(readFileSync(src.path, "utf8")).toContain("fakecli2")
   })
 
+  test("Git 缓存不能标为另一个仓库或拉取失败的新 ref", async () => {
+    const spec = `git+${pathToFileURL(path.join(dir, "repo")).href}#main`
+    await loadRegistry(spec, { cacheDir: cache })
+    expect((await loadRegistry(spec, { cacheDir: cache, cacheOnly: true })).kind).toBe("git")
+    await expect(loadRegistry(spec.replace("#main", "#missing-ref"), { cacheDir: cache })).rejects.toThrow(/new registry ref/)
+    await expect(loadRegistry(spec.replace("#main", "#missing-ref"), { cacheDir: cache, cacheOnly: true })).rejects.toThrow(/source mismatch/)
+    const other = `git+${pathToFileURL(path.join(dir, "other-repo")).href}#main`
+    await expect(loadRegistry(other, { cacheDir: cache })).rejects.toThrow(/origin mismatch/)
+  })
+
   test("拉取失败抛错（调用方 fail-open）", async () => {
     await expect(loadRegistry(`${httpBase}/nope.yaml`, { cacheDir: cache })).rejects.toThrow()
   })

@@ -44,6 +44,7 @@
   dialog textarea { min-height: 70px; }
   dialog .actions { display: flex; gap: 8px; justify-content: flex-end; }
   .warning { color: #b45309; white-space: pre-wrap; }
+  [hidden] { display: none !important; }
 </style>
 </head>
 <body>
@@ -64,6 +65,7 @@ window.addEventListener("unhandledrejection", event => {
 </script>
 <script src="/session-client.js"></script>
 <script src="/catalog-ui.js"></script>
+<script src="/project-ui.js"></script>
 <div id="app">加载中…</div>
 <script>
 // 由插件的 service 直接服务（127.0.0.1，框架仍是沙箱 opaque origin，
@@ -112,6 +114,7 @@ window.addEventListener("unhandledrejection", event => {
     onExpired: recoverSession,
   })
   const manager = createCatalogManager({ api, refresh, notify: text => { msg.textContent = text } })
+  const projectsManager = createProjectManager({ api, refresh, notify: text => { msg.textContent = text } })
 
   async function refresh() {
     let view
@@ -174,6 +177,10 @@ window.addEventListener("unhandledrejection", event => {
     }
 
     app.append(toolTable(view.tools))
+    const projectBar = document.createElement("div")
+    projectBar.className = "bar"
+    projectsManager.mount(projectBar)
+    app.append(projectBar)
     const p = projectTable(view.projects)
     if (p) app.append(p)
 
@@ -234,7 +241,7 @@ window.addEventListener("unhandledrejection", event => {
     if (!projects || projects.length === 0) return null
     const t = document.createElement("table")
     const head = document.createElement("tr")
-    for (const h of ["项目", "地址", "备注"]) {
+    for (const h of ["项目 / 来源", "远端 / 本机目录", "Git / P4 工作区", "管理"]) {
       const th = document.createElement("th")
       th.textContent = h
       head.append(th)
@@ -244,7 +251,7 @@ window.addEventListener("unhandledrejection", event => {
       const tr = document.createElement("tr")
       const id = document.createElement("td")
       const b = document.createElement("b")
-      b.textContent = p.id
+      b.textContent = p.id + (p.source === "local" ? " · 本机" : " · 团队")
       id.append(b)
       if (p.name) {
         const span = document.createElement("span")
@@ -254,12 +261,16 @@ window.addEventListener("unhandledrejection", event => {
       }
       const vcs = document.createElement("td")
       const code = document.createElement("code")
-      code.textContent = p.vcs ?? p.url ?? ""
+      code.textContent = [p.vcs ?? p.url, p.localPath].filter(Boolean).join("\n")
+      code.style.whiteSpace = "pre-wrap"
       vcs.append(code)
       const note = document.createElement("td")
       note.className = "sub"
-      note.textContent = p.note ?? ""
-      tr.append(id, vcs, note)
+      note.style.whiteSpace = "pre-wrap"
+      note.textContent = [p.kind, p.local?.status, p.local?.branch, p.local?.head?.slice(0, 12), p.p4?.port, p.p4?.client, p.p4?.stream ?? p.p4?.depotPath, p.note].filter(Boolean).join("\n")
+      const actions = document.createElement("td")
+      projectsManager.rowActions(actions, p)
+      tr.append(id, vcs, note, actions)
       t.append(tr)
     }
     return t

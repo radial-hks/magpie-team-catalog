@@ -67,7 +67,11 @@ projects:             # 项目地址条目列表
   note: 主仓库，P4 镜像见 legacy-sync    # 可选。一行备注
 ```
 
-`vcs` 支持任意 git URL 与 `perforce://host:port//depot/path` 两种写法；索引注入时按前缀缩写（`github:team/billing`、`p4://depot/legacy-sync`）。
+`vcs` 支持 git URL 与 `perforce://host:port//depot/path`；索引按前缀缩写。
+新增可选 `kind: git|p4|directory`、`localPath`（绝对路径）、`p4` 元数据
+（port/user/client/stream/depotPath/view/configFile）。允许仅 localPath 的本机项目。
+个人文件还支持 `projectBindings.<团队项目ID>`（只允许 localPath/p4），不会覆盖团队地址。
+完整字段、发现与只读边界见 [local-projects.md](local-projects.md)。
 
 ## 个人注册层
 
