@@ -1,6 +1,6 @@
 # 设计文档 · magpie-team-catalog
 
-版本：draft-1（2026-11-15，设计阶段，尚未实现）
+版本：v2（2026-11-15，随 F1–F4 实施同步；M1–M4 与 F1–F4 均已实现，见 plan.md）
 
 ## 1. 背景与问题
 
@@ -14,13 +14,15 @@ Agent 普及后多出第三个需求：**让 Agent 在任何机器上开箱即�
 核心矛盾：**注册表是声明式的**（团队说"应该有"），**每台机器的安装事实是杂乱的**（装没装、装在哪、版本如何，只有本机知道，且途径各异、无法断定"用户一定注册了"）。因此本插件的定位是三层之间的 reconcile（协调）层：
 
 ```
-团队声明（registry.yaml，git 仓库，PR 审核）
-        │ 拉取
+团队声明（registry.yaml，git 仓库，PR 审核）      团队 skill 仓库（skills/<id>/SKILL.md，独立发版）
+        │ 拉取                                        │ 拉取（options.skillsRepo）
 Bun 宿主模块 ──本机探测──> catalog-state.json（本机实测态）
         │                        │
-        │ tool: catalog          │ middleware: 只注入本机 available 的索引
-        ▼                        ▼
-/mcp/magpie/tools          每个请求的 system prompt
+        │ tool: catalog          │ skill: 团队正文 + 实测块 → SKILL.md 落盘（主路径，F3/F4）
+        │                        │        └─ hand-over 后改维护 magpie library 副本 + library sync
+        │ middleware: 索引注入 system prompt（回退，injectIndex 才生效）
+        ▼
+/mcp/magpie/tools          Agent skill 目录 / magpie library
         │
    所有 Agent（magpie 现成的工具分发 / MCP 路由）
         +
@@ -124,9 +126,34 @@ OpenCode `tool` 钩子，经 magpie 汇入 `/mcp/magpie/tools`，所有支持 MC
   "usage": "deploy-cli release --app <name>", "fix": "npm i -g @team/deploy-cli@latest" }
 ```
 
-### 6.2 感知层：gateway middleware
+### 6.2 感知层：skill 落盘（F3/F4 主路径）
 
-`*.middleware.js` 的 `onRequest`（magpie 官方支持的"往系统提示词里加内容"场景），向每个请求的 system prompt 头部注入**一行压缩索引**：
+**设计变更（2026-11-15，F3）**：原方案是向每个请求的 system prompt 注入索引（见
+6.4 回退通道）。实测体感不佳：非项目任务里，每个请求都带着一份 CLI/项目清单，
+对模型是噪声。改为 **skill 形态**：Agent 侧本就有「按需读取、显式调用」的 skill
+机制，插件把团队 skill 与本机实测合成后落盘，Agent 在自己的 skill 目录里看到它。
+
+- **来源**：独立公共 skill 仓库（与 CLI 一起发版，决策 B），布局
+  `skills/<id>/SKILL.md`；registry 条目可用 `skill: <id>` 映射（缺省同工具 id）；
+- **渲染**：源 frontmatter（name 强制改写为 `skillPrefix + id`）+ 团队正文 +
+  实测块（本机绝对路径/版本/via，`<!-- team-catalog:measured -->` 定界，刻意不带
+  时间戳以保证幂等）+ 「路径失效则用 catalog 工具查最新」提示；
+- **落点**：默认 `~/.agents/skills/team-<id>/`（跨工具共享投放点）；
+- **托管边界**：只覆盖/删除带 `<!-- team-catalog:managed -->` 标记的文件；
+  未安装/禁用不生成，已生成则移除；内容不变不重写；
+- **分发（F4，方案 C）**：落点只是装卸点，跨 Agent 分发走 magpie library
+  （`skill hand-over / agents / router`，官方管理面）。hand-over 后插件检测到
+  `<library>/team-<id>/` 存在即改维护 library 副本（不重建共享点副本，避免双
+  真源），内容变化时自动 `magpie library sync` 重推给各 Agent；library 里无
+  标记的 skill 一律不碰，禁用也不删 library 副本（所有权归 magpie）。
+
+选 C 弃 B（hand-over 后关同步）的原因：实测块暴露的是本机路径/版本，CLI 升级
+换路径后若无人刷新，skill 会越来越假；插件是唯一知道真实路径的角色，所以必须
+由它持续维护 library 副本。
+
+### 6.3 感知层回退：gateway middleware（原主路径，默认关）
+
+`*.middleware.js` 的 `onRequest`（magpie 官方支持的"往系统提示词里加内容"场景），向每个请求的 system prompt 头部注入**一行压缩索引**。**仅在 `options.injectIndex === true` 时生效**（F3 起默认关闭，代码与测试完整保留作为回退通道）：
 
 - **只包含本机 available（present / configured / outdated）的工具**——missing 的不注入（或留一行"未安装项可用 catalog 工具查"，由 options 决定）；
 - middleware 跑在 moejs，**没有 fetch / 定时器**：索引文本由 Bun 侧刷新后写入插件 options（`ctx.options.index`），middleware 只做纯注入；
@@ -138,14 +165,20 @@ OpenCode `tool` 钩子，经 magpie 汇入 `/mcp/magpie/tools`，所有支持 MC
 团队项目地址：billing=github:team/billing · legacy-sync=p4://depot/legacy-sync
 ```
 
-### 6.3 管理层：窗口页（M3，可选）
+### 6.4 管理层：窗口页（M3）
 
-`magpie.page` + Bun 模块起的本地 service（`magpie.page.service`）：表格列出全部条目、状态、版本、探测时间；每行可编辑覆盖（写回 `magpie.options.set`）。纯页面能力（`magpie.read` 的 `usage:summary` / `providers:list`）与本插件关系不大，页面数据主要走本地 service。
+`magpie.page` 的带路页（`page/index.html` + `page/boot.js`）导航到插件自己的本地
+service（`magpie.page.service`，`lib/service.mjs`）：主界面由 service 的 `GET /`
+直接提供（沙箱 iframe 无网络权限，官方带路页模式），数据走同源 `/state`
+`/options`；表格列条目/状态/版本/探测时间，每行可编辑覆盖，保存经 `POST
+/options` → service 代执 `magpie plugin options` CLI（与 worker 发布同一条通道）→
+宿主重载 + 重探测。
 
 ## 7. 安全边界
 
-- **只读**：catalog 工具与 middleware 都不安装、不写 Agent 配置、不修改探测对象；
-- **fail-open**：探测挂了当 missing，middleware 挂了原请求直过，索引缺失不报错；
+- **只读（对探测对象）**：catalog 工具与 middleware 都不安装、不写 Agent 配置、不修改探测对象；
+- **skill 写入有边界**（F3/F4）：只写 `skillRoot`（默认 `~/.agents/skills`）与 hand-over 后的 library 副本，且只碰带 `<!-- team-catalog:managed -->` 标记的文件；library 里无标记的 skill 一律不碰；
+- **fail-open**：探测挂了当 missing，middleware 挂了原请求直过，skill 同步失败不影响探测与索引，索引缺失不报错；
 - **可整体关闭**：`magpie plugin off team-catalog` 后索引、工具、页面全部消失，`plugins.json` / `catalog-state.json` 之外零残留；移除插件用 `magpie plugin rm`；
 - **无密钥**：registry 与 state 文件里只有地址、命令、版本号；插件以用户权限在宿主里运行（magpie 的通用约束），探测命令来自 PR 审核过的 registry + 用户本地覆盖，`check` 里的命令字段在 schema 层面限制为已声明的模式（bin + 固定参数数组），不允许任意 shell 字符串。
 
@@ -169,9 +202,10 @@ OpenCode `tool` 钩子，经 magpie 汇入 `/mcp/magpie/tools`，所有支持 MC
 - 测试用独立 `HOME` 沙箱：`env HOME=$(mktemp -d) XDG_CONFIG_HOME=… MAGPIE_ADDR=… magpie …`；
 - 单文件/文件夹插件 `magpie plugin add ./路径` 就地加载，改动后终端命令每次按当前内容加载。
 
-## 10. 开放问题（实现前需收口）
+## 10. 开放问题（状态）
 
-1. **registry 拉取途径**：git URL（需凭据）/ HTTP raw / npm 包内携带，M1 先支持 `file://` 与 HTTP，git 凭据复用本机 git 配置；
-2. **索引注入位置**：prepend 到 system 首条 vs 追加到末尾，需实测各 Agent 的行为后定；
-3. **`catalog-state.json` 的存放与多 magpie 实例**（沙箱 vs 常驻）互不干扰；
-4. probe 命令的副作用边界：要求 registry 作者只声明幂等只读命令（写进 schema 文档的作者纪律）。
+1. **registry 拉取途径**——已收口：local / http / git 三形态（`lib/source.mjs`），git 凭据走本机配置；
+2. **索引注入位置（prepend vs append）**——**已作废**（F3）：主路径改为 skill 落盘，不再往 system prompt 注入；middleware 仅作回退通道（`injectIndex: true`），位置维持 prepend；
+3. **`catalog-state.json` 的存放与多 magpie 实例**——已收口：`statePath` 可覆盖，缺省在 magpie 配置目录下插件自己的子目录，沙箱实例各用各的；
+4. **probe 命令的副作用边界**——已收口：schema 层限制为固定参数数组 + 作者纪律（PR 审核）；
+5. **skill 与 library 的所有权**（新）——F4 方案 C 已定：hand-over 后真源在 library，插件只维护副本 + 触发 sync；但 `hand-over`/`library sync` 尚未实机验收（个人机不启用）。

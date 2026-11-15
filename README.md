@@ -9,23 +9,29 @@
 
 团队声明（应该有什么）与本机实测态（这台机器上真有什么）彻底分离；插件只读、fail-open、可随时关闭无残留。
 
-> 状态：**M1–M3 已实现，M4 完成代码侧，F1–F3 已合入**（F3：skill 落盘取代 system prompt 注入，默认关闭）；剩余为团队决策项（内部 npm 发布、双机验证），见 [docs/plan.md](docs/plan.md)。
+> 状态：**M1–M4 代码侧完成，F1–F4 已合入**（F3：skill 落盘取代 system prompt
+> 注入；F4：hand-over 后插件维护 library 副本；均默认关闭）。剩余为团队决策项
+> （内部 npm 发布、双机验证、团队 skill 仓库），见 [docs/plan.md](docs/plan.md)；
+> 使用与部署见 [docs/usage.md](docs/usage.md)。
 
-## skill 落盘（F3，主路径）
+## skill 落盘（F3/F4，主路径，默认关）
 
-`options` 开启（本机默认关闭）后，每轮探测把「团队 skill 仓库」里的
-`skills/<id>/SKILL.md` 与本机实测数据合成，写到 `skillRoot`（默认
-`~/.agents/skills`）——带托管标记，未安装/禁用的工具不生成或移除。
-分发交给 magpie 自己的 library：
+开启后，每轮探测把「团队 skill 仓库」里的 `skills/<id>/SKILL.md` 与本机实测数据
+合成，写到 `~/.agents/skills/team-<id>/`：实测块含真实绝对路径与版本，未安装/
+禁用的工具不生成或移除，只碰带托管标记的文件，内容不变不重写。
+
+分发交给 magpie 自己的 library：hand-over 一次之后，插件检测到 library 副本
+就改维护那里（不再重建共享点副本），内容变化时自动 `magpie library sync`
+重推给各 Agent。skill 源仓库是独立公共仓库（与 CLI 一起发版）。
+
+完整选项、三条使用路径与工作机部署清单见 **[docs/usage.md](docs/usage.md)**；
+分发命令先看：
 
 ```sh
-magpie library skill hand-over <name>   # 搬进 library 记账
+magpie library skill hand-over <name>   # 搬进 library 记账（一次）
 magpie library skill agents <name> …    # 指定给哪些 Agent
 magpie library skill router on          # 或聚合入口按需读取
 ```
-
-skill 仓库是独立公共仓库（与 CLI 一起发版），`options.skillsRepo`
-（本地路径或 git spec）拉取，见 [registry-workflow.md](docs/registry-workflow.md)。
 
 ## registry 数据源
 
@@ -40,8 +46,8 @@ skill 仓库是独立公共仓库（与 CLI 一起发版），`options.skillsRep
 
 | 文件 | 职责 |
 | --- | --- |
-| `index.mjs` | 插件入口（Bun 宿主内）：加载时与按周期 spawn detached worker；提供 `catalog` 工具 |
-| `worker.mjs` | 一轮探测+发布的独立进程：读 registry → 探测 → 写 state → 索引发布到 options |
+| `index.mjs` | 插件入口（Bun 宿主内）：加载时与按周期 spawn detached worker；提供 `catalog` 工具；起窗口页 service |
+| `worker.mjs` | 一轮探测的独立进程：读 registry → 探测 → 写 state → 索引发布 → skill 同步（F3/F4） |
 | `catalog.middleware.js` | 网关中间件（moejs）：`injectIndex: true` 时才注入（默认关，可回退） |
 | `lib/yaml.mjs` | registry.yaml 的最小 YAML 子集解析器（纯函数） |
 | `lib/core.mjs` | registry 校验、平台/用户覆盖合并、状态判定、索引构建（纯函数） |
@@ -49,6 +55,8 @@ skill 仓库是独立公共仓库（与 CLI 一起发版），`options.skillsRep
 | `lib/inject.mjs` | 各协议 system 注入（anthropic/chat/responses/gemini，纯函数） |
 | `lib/cycle.mjs` | 一轮刷新的编排：跨进程锁、state 原子写、经 magpie CLI 发布索引 |
 | `lib/tool.mjs` | `catalog` 工具：搜索（id/名称/用法）与详情（docs 全文 + 按需 probe） |
+| `lib/skill.mjs` | 团队 skill + 本机实测 → SKILL.md 渲染与同步（F3）；hand-over 后分流 library（F4，方案 C） |
+| `lib/service.mjs` | 窗口页的本地 service（127.0.0.1，端口读 options.servicePort）：出主界面 + `/state` `/options` `/refresh`，port 占用时后台重试 |
 | `lib/service.mjs` | 窗口页的本地 service（127.0.0.1，端口读 options.servicePort）：出主界面 + `/state` `/options` `/refresh`，port 占用时后台重试 |
 | `page/` | 带路页：`index.html` 在外壳 + `boot.js` 交接主题后 `location.replace` 到 service；主界面 `main.html` 由 service 提供 |
 | `test/` | bun test（纯函数全覆盖 + 假 CLI 探测/工具/service 实测，共 65 项） |
@@ -60,7 +68,8 @@ skill 仓库是独立公共仓库（与 CLI 一起发版），`options.skillsRep
 | 文档 | 内容 |
 | --- | --- |
 | [docs/design.md](docs/design.md) | 详细设计：架构、配置分层、探测状态机、Agent 暴露方式、安全边界 |
-| [docs/plan.md](docs/plan.md) | 分阶段实施计划与各阶段验收标准 |
+| [docs/plan.md](docs/plan.md) | 分阶段实施计划与各阶段验收标准（含基线后 F1–F4） |
+| [docs/usage.md](docs/usage.md) | 使用说明：选项参考、三条使用路径、工作机部署清单、排障 |
 | [docs/registry-schema.md](docs/registry-schema.md) | `registry.yaml` 的字段规范 |
 | [docs/registry-workflow.md](docs/registry-workflow.md) | registry 变更流程：PR 模板、check 命令纪律、min 升级流程、数据源形态 |
 | [registry/registry.example.yaml](registry/registry.example.yaml) | 示例注册表 |
