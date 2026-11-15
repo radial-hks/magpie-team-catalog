@@ -1,6 +1,6 @@
 // skill.mjs 测试：frontmatter 解析/改写、实测块、幂等、托管边界（临时目录实测 IO）。
 import { afterAll, beforeAll, describe, expect, test } from "bun:test"
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import path from "node:path"
 
@@ -36,7 +36,7 @@ describe("纯函数", () => {
   })
 
   test("renderSkill：name 强制改写、实测块定界、幂等、自带标题不双 H1", () => {
-    const a = renderSkill({ source: SOURCE, tool: tool({}), finding, checkedAt: 1000, prefix: "team-" })
+    const a = renderSkill({ source: SOURCE, tool: tool({}), finding, prefix: "team-" })
     expect(a).toContain("name: team-hermes")
     expect(a).toContain(MANAGED)
     expect(a).toContain(MEASURED_BEGIN)
@@ -44,17 +44,19 @@ describe("纯函数", () => {
     expect(a).toContain("0.23.1")
     expect(a).toContain("catalog")
     expect(a.match(/^# (?!$)/gm)?.length).toBe(1) // 源有标题：不另造，全篇只 1 个 H1
-    const b = renderSkill({ source: SOURCE, tool: tool({}), finding, checkedAt: 1000, prefix: "team-" })
+    const b = renderSkill({ source: SOURCE, tool: tool({}), finding, prefix: "team-" })
     expect(a).toBe(b)
-    // 无标题的源：补 H1；无版本（weknora 形态）via 仍如实带出
-    const c = renderSkill({ source: "只是一段正文", tool: tool({}), finding: { found: true, via: "path", path: "/x/weknora" }, checkedAt: 1000, prefix: "" })
+    // 无标题的源：补 H1；无版本（weknora 形态）via 仍如实带出；无时间戳（幂等）
+    const c = renderSkill({ source: "只是一段正文", tool: tool({}), finding: { found: true, via: "path", path: "/x/weknora" }, prefix: "" })
     expect(c).toContain("# hermes")
     expect(c).toContain("未解析（via: path）")
+    expect(c).not.toContain("探测时间")
   })
 
-  test("measuredBlock：无 finding 也不崩", () => {
-    expect(measuredBlock(null, null)).toContain(MEASURED_BEGIN)
-    expect(measuredBlock(null, null)).toContain(MEASURED_END)
+  test("measuredBlock：无 finding 也不崩；不带时间戳（幂等前提）", () => {
+    expect(measuredBlock(null)).toContain(MEASURED_BEGIN)
+    expect(measuredBlock(null)).toContain(MEASURED_END)
+    expect(measuredBlock(finding)).not.toContain("探测时间")
   })
 })
 
@@ -78,29 +80,37 @@ describe("syncSkills（临时目录实测 IO）", () => {
 
   const entry = (t, f, available) => ({ tool: t, finding: f, available })
 
-  test("写入 → 幂等 → 禁用移除，全程不碰异物", () => {
+  test("写入 → 幂等 → 禁用移除，全程不碰异物", async () => {
     const e = (avail) => [
       entry(tool({}), finding, avail),
       entry(tool({ id: "weknora" }), { found: true, via: "path", path: "/x/weknora" }, avail),
     ]
-    const r1 = syncSkills({ entries: e(true), sourceRoot: src, skillRoot: root, checkedAt: 1 })
+    const r1 = syncSkills({ entries: e(true), sourceRoot: src, skillRoot: root })
     expect(r1.written.sort()).toEqual(["hermes", "weknora"])
     expect(r1.removed).toEqual([])
     const f = path.join(root, "hermes", "SKILL.md")
     expect(isManaged(f)).toBe(true)
     expect(readFileSync(f, "utf8")).toContain("name: hermes")
 
-    // 幂等：再跑一轮同样的，不重写
-    const r2 = syncSkills({ entries: e(true), sourceRoot: src, skillRoot: root, checkedAt: 1 })
+    // 幂等：再跑一轮同样的，不重写（mtimes 也不变）
+    const before = statSync(f).mtimeMs
+    await new Promise((r) => setTimeout(r, 12))
+    const r2 = syncSkills({ entries: e(true), sourceRoot: src, skillRoot: root })
     expect(r2.written).toEqual([])
     expect(r2.removed).toEqual([])
+    expect(statSync(f).mtimeMs).toBe(before)
 
-    // 变了才写：探测时间变了 → 重写
-    const r3 = syncSkills({ entries: e(true), sourceRoot: src, skillRoot: root, checkedAt: 2 })
-    expect(r3.written.sort()).toEqual(["hermes", "weknora"])
+    // 变了才写：探测结果变（版本升级）→ 重写
+    const r3 = syncSkills({
+      entries: [entry(tool({}), { ...finding, version: "0.24.0" }, true), entry(tool({ id: "weknora" }), { found: true, via: "path", path: "/x/weknora" }, true)],
+      sourceRoot: src,
+      skillRoot: root,
+    })
+    expect(r3.written).toEqual(["hermes"])
+    expect(readFileSync(f, "utf8")).toContain("0.24.0")
 
     // 全部不可用 → 都被移除
-    const r4 = syncSkills({ entries: e(false), sourceRoot: src, skillRoot: root, checkedAt: 2 })
+    const r4 = syncSkills({ entries: e(false), sourceRoot: src, skillRoot: root })
     expect(r4.removed.sort()).toEqual(["hermes", "weknora"])
     expect(existsSync(path.join(root, "hermes"))).toBe(false)
     // 异物完好
@@ -113,7 +123,6 @@ describe("syncSkills（临时目录实测 IO）", () => {
       entries: [entry(tool({ id: "foreign" }), finding, true), entry(tool({ id: "nosuchsrc" }), finding, true)],
       sourceRoot: src,
       skillRoot: root,
-      checkedAt: 1,
     })
     expect(r.skipped.sort()).toEqual(["foreign", "nosuchsrc"])
     expect(r.written).toEqual([])
@@ -121,10 +130,10 @@ describe("syncSkills（临时目录实测 IO）", () => {
   })
 
   test("团队删掉工具后，残留的托管目录被清理", () => {
-    syncSkills({ entries: [entry(tool({}), finding, true)], sourceRoot: src, skillRoot: root, checkedAt: 1 })
+    syncSkills({ entries: [entry(tool({}), finding, true)], sourceRoot: src, skillRoot: root })
     expect(existsSync(path.join(root, "hermes"))).toBe(true)
     // 下一轮 registry 里没有 hermes 了（entries 为空）
-    const r = syncSkills({ entries: [], sourceRoot: src, skillRoot: root, checkedAt: 1 })
+    const r = syncSkills({ entries: [], sourceRoot: src, skillRoot: root })
     expect(r.removed).toEqual(["hermes"])
     expect(existsSync(path.join(root, "hermes"))).toBe(false)
   })
@@ -135,13 +144,12 @@ describe("syncSkills（临时目录实测 IO）", () => {
       sourceRoot: src,
       skillRoot: root,
       prefix: "team-",
-      checkedAt: 1,
     })
     expect(r.written).toEqual(["hermes"])
     expect(existsSync(path.join(root, "team-hermes", "SKILL.md"))).toBe(true)
     expect(existsSync(path.join(root, "hermes"))).toBe(false)
     // 异物目录（无前缀）不会被清理波及
-    const r2 = syncSkills({ entries: [], sourceRoot: src, skillRoot: root, prefix: "team-", checkedAt: 1 })
+    const r2 = syncSkills({ entries: [], sourceRoot: src, skillRoot: root, prefix: "team-" })
     expect(r2.removed).toEqual(["hermes"])
     expect(existsSync(path.join(root, "foreign", "SKILL.md"))).toBe(true)
   })
