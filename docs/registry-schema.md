@@ -37,7 +37,8 @@ projects:             # 项目地址条目列表
 
 - `check` 中所有命令字段是**固定的参数数组**，schema 层面禁止任意 shell 字符串（防注入）；
 - `probe` 必须幂等、只读、≤5s、不弹网络副作用（登录类命令禁止）；这是 registry 作者纪律，PR 审核把关；
-- `timeoutMs` 只给确实慢的条目（冷启动、输出多）放宽，默认不写；上限建议
+- `timeoutMs` 建议每条都显式写明（快条目与全局同值也行），让探测预算在
+  registry 里可见；确实慢的条目（冷启动、输出多）再单独放宽，上限建议
   15000——探测是并发跑的，一个条目拖太久会拖慢整轮刷新；
 - `kind` 决定探测方式优先级：npm → `npm ls -g`；pipx → `pipx list --json`；pip → 包名导入检查；brew → `brew list --versions`；binary → PATH / `where` 查找。任一途径命中即 `present`；
 - `install` 永远只是文本，插件不得解析或执行它。

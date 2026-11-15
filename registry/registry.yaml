@@ -12,6 +12,7 @@ tools:
     check:
       bin: weknora
       version: ["--version"]
+      timeoutMs: 5000
 
   - id: gitnexus
     name: GitNexus CLI
@@ -22,6 +23,7 @@ tools:
     check:
       bin: gitnexus
       version: ["--version"]
+      timeoutMs: 5000
 
   - id: hermes
     name: Hermes Agent
@@ -42,6 +44,7 @@ tools:
     check:
       bin: bun
       version: ["--version"]
+      timeoutMs: 5000
 
 projects:
   - id: weknora-docs
