@@ -1,12 +1,13 @@
 // tool.mjs 测试：匹配、响应组装（fix/probe/pinned/disabled）、catalogTool
 // 的搜索与详情（含 docs 读取与按需 probe 实测）。
 import { afterAll, beforeAll, describe, expect, test } from "bun:test"
-import { mkdtempSync, mkdirSync, writeFileSync, chmodSync, rmSync } from "node:fs"
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
 import path from "node:path"
 
 import { matchTools, matchProjects, entryJSON, projectJSON, catalogTool, runProbeCmd } from "../lib/tool.mjs"
 import { parseRegistry } from "../lib/core.mjs"
+import { fakeCLI } from "./helpers/fake-cli.mjs"
 
 const REGISTRY = `version: 1
 tools:
@@ -76,11 +77,11 @@ describe("catalogTool（IO：registry/state/docs/probe）", () => {
 
   beforeAll(() => {
     dir = mkdtempSync(path.join(tmpdir(), "tc-tool-"))
-    process.env.PATH = `${dir}:${OLD_PATH}`
+    process.env.PATH = `${dir}${path.delimiter}${OLD_PATH ?? ""}`
     // 假 CLI：--version 输出版本，whoami 退出 0
-    const bin = path.join(dir, "deploy-cli")
-    writeFileSync(bin, '#!/bin/sh\n[ "$1" = "whoami" ] && echo "me@team" && exit 0\necho "deploy-cli 1.2.3"\n')
-    chmodSync(bin, 0o755)
+    fakeCLI(dir, "deploy-cli", {
+      code: 'console.log(process.argv[2] === "whoami" ? "me@team" : "deploy-cli 1.2.3");\n',
+    })
     writeFileSync(path.join(dir, "registry.yaml"), REGISTRY)
     mkdirSync(path.join(dir, "docs"))
     writeFileSync(path.join(dir, "docs", "deploy-cli.md"), "# deploy-cli 用法\n\n详细文档正文。")
@@ -91,7 +92,7 @@ describe("catalogTool（IO：registry/state/docs/probe）", () => {
     rmSync(dir, { recursive: true, force: true })
   })
 
-  const opts = () => ({ registry: path.join(dir, "registry.yaml"), statePath: path.join(dir, "state.json") })
+  const opts = () => ({ registry: path.join(dir, "registry.yaml"), statePath: path.join(dir, "state.json"), localRegistry: false })
 
   test("搜索：无 state 时返回 unknown 并触发 onStale", async () => {
     let stale = false

@@ -53,6 +53,3 @@ projects:
   - id: taskbridge
     name: TaskBridge
     vcs: git@github.com:radial-hks/TaskBridge.git
-  - id: sentinel-maa
-    name: sentinel_maa
-    vcs: git@github.com:radial-hks/sentinel_maa.git

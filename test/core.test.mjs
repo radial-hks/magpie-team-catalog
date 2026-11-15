@@ -110,6 +110,13 @@ describe("toolStatus / 版本", () => {
     expect(firstSemver("no version here")).toBe(null)
   })
 
+  test("Perforce Rev 版本优先于 OpenSSL 依赖版本", () => {
+    const output = "Version of OpenSSL Libraries: OpenSSL 1.0.2l 25 May 2017\r\nRev. P4/NTX64/2017.2/1579154 (2017/10/12).\r\n"
+    expect(firstSemver(output)).toBe("2017.2.1579154")
+    expect(firstSemver("Rev. P4V/NTX64/2025.1/1234567 (2025/01/01).")).toBe("2025.1.1234567")
+    expect(firstSemver("unrelated 1.2.3")).toBe("1.2.3")
+  })
+
   test("versionLt", () => {
     expect(versionLt("1.2.0", "1.4.0")).toBe(true)
     expect(versionLt("1.10.0", "1.9.0")).toBe(false)

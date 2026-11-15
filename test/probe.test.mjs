@@ -1,33 +1,24 @@
 // probe.mjs 测试：临时目录造假 CLI，PATH 注入后实测探测链路。
 import { afterAll, beforeAll, describe, expect, test } from "bun:test"
-import { mkdtempSync, writeFileSync, chmodSync, rmSync } from "node:fs"
+import { mkdtempSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
 import path from "node:path"
 
 import { which, probeTool, probeAll } from "../lib/probe.mjs"
 import { effectiveTool, toolStatus } from "../lib/core.mjs"
+import { fakeCLI } from "./helpers/fake-cli.mjs"
 
 let dir
 const OLD_PATH = process.env.PATH
 
-function fakeBin(name, out) {
-  const p = path.join(dir, name)
-  writeFileSync(p, `#!/bin/sh\necho "${out}"\n`)
-  chmodSync(p, 0o755)
-  return p
-}
+const fakeBin = (name, output) => fakeCLI(dir, name, { output })
 
-/** 慢 CLI：先 sleep 再输出（模拟冷启动/输出多的 --version）。 */
-function fakeSlowBin(name, out, ms) {
-  const p = path.join(dir, name)
-  writeFileSync(p, `#!/bin/sh\nsleep ${(ms / 1000).toFixed(2)}\necho "${out}"\n`)
-  chmodSync(p, 0o755)
-  return p
-}
+/** 慢 CLI：先等待再输出（模拟冷启动/输出多的 --version）。 */
+const fakeSlowBin = (name, output, delayMs) => fakeCLI(dir, name, { output, delayMs })
 
 beforeAll(() => {
   dir = mkdtempSync(path.join(tmpdir(), "tc-probe-"))
-  process.env.PATH = `${dir}:${OLD_PATH}`
+  process.env.PATH = `${dir}${path.delimiter}${OLD_PATH ?? ""}`
 })
 
 afterAll(() => {
@@ -46,6 +37,12 @@ describe("which / probeTool", () => {
     expect(f.via).toBe("path")
     expect(f.version).toBe("1.2.3")
     expect(toolStatus(t, f)).toBe("present")
+  })
+
+  test("P4 -V 探测返回 Perforce 版本，不误报 OpenSSL", async () => {
+    const p = fakeBin("fakep4", "OpenSSL 1.0.2l\nRev. P4/NTX64/2017.2/1579154 (2017/10/12).")
+    const f = await probeTool(tool({ id: "p4", check: { bin: p, version: ["-V"] } }))
+    expect(f.version).toBe("2017.2.1579154")
   })
 
   test("min 比对 → outdated", async () => {

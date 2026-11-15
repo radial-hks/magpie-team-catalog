@@ -6,6 +6,7 @@ import path from "node:path"
 
 import { pageView, startService, DEFAULT_SERVICE_PORT } from "../lib/service.mjs"
 import { parseRegistry } from "../lib/core.mjs"
+import { fakeCLI } from "./helpers/fake-cli.mjs"
 
 const REGISTRY = `version: 1
 tools:
@@ -55,14 +56,22 @@ describe("service HTTP（真 Bun.serve）", () => {
   let dir
   let server
   let base
+  let headers
 
-  beforeAll(() => {
+  beforeAll(async () => {
     dir = mkdtempSync(path.join(tmpdir(), "tc-svc-"))
-    writeFileSync(path.join(dir, "registry.yaml"), REGISTRY)
+    // 刷新只探测临时 CLI：不读取本机 npm 全局包，也不依赖本机 PATH。
+    const bin = fakeCLI(dir, "deploy-cli", { output: "1.4.2" })
+    const isolated = REGISTRY.replace("kind: npm", "kind: binary")
+      .replace("bin: deploy-cli", `bin: ${JSON.stringify(bin)}`)
+      .replace('    install: "brew install team/tap/perf-diag"', `    install: "brew install team/tap/perf-diag"\n    check: {bin: ${JSON.stringify(path.join(dir, "missing.exe"))}}`)
+    writeFileSync(path.join(dir, "registry.yaml"), isolated)
     writeFileSync(path.join(dir, "state.json"), JSON.stringify({ checkedAt: 999, tools: { "deploy-cli": { status: "present", version: "1.4.2", via: "npm", at: 999 } } }))
     const port = 34000 + Math.floor(Math.random() * 2000)
-    server = startService({ registry: path.join(dir, "registry.yaml"), statePath: path.join(dir, "state.json"), servicePort: port })
+    server = startService({ registry: path.join(dir, "registry.yaml"), statePath: path.join(dir, "state.json"), servicePort: port, localRegistry: false, magpieBin: path.join(dir, "no-magpie.exe") }, { readOptions: () => null })
     base = `http://127.0.0.1:${server.port}`
+    const html = await (await fetch(base)).text()
+    headers = { "x-catalog-token": html.match(/name="catalog-token" content="([^"]+)"/)[1] }
   })
 
   afterAll(() => {
@@ -85,22 +94,23 @@ describe("service HTTP（真 Bun.serve）", () => {
   })
 
   test("POST /refresh 202 并触发 worker（state 变新）", async () => {
-    const r = await fetch(`${base}/refresh`, { method: "POST" })
+    const r = await fetch(`${base}/refresh`, { method: "POST", headers })
     expect(r.status).toBe(202)
-    // worker 探测 perf-diag（不存在）→ state 会更新 checkedAt
+    // worker 探测临时 CLI 与不存在的绝对路径 → state 更新 checkedAt。
+    // Windows worker 冷启动可能超过 bun test 默认的 5s。
     let changed = false
-    for (let i = 0; i < 20 && !changed; i++) {
+    for (let i = 0; i < 24 && !changed; i++) {
       await new Promise((res) => setTimeout(res, 500))
       const v = await (await fetch(`${base}/state`)).json()
       changed = v.checkedAt !== new Date(999).toISOString()
     }
     expect(changed).toBe(true)
-  })
+  }, 15000)
 
   test("GET / 出带路页导航过去的主界面（service 自己服务）", async () => {
     const r = await fetch(`${base}/`)
     expect(r.status).toBe(200)
-    expect(r.headers.get("access-control-allow-origin")).toBe("*")
+    expect(r.headers.get("access-control-allow-origin")).toBe(null)
     expect(r.headers.get("content-type")).toContain("text/html")
     const html = await r.text()
     // 主界面是 service 端的，不依赖沙箱页的网络权限（官方带路页模式）
@@ -112,7 +122,7 @@ describe("service HTTP（真 Bun.serve）", () => {
     for (const bad of [{}, { overrides: [] }, { overrides: null }, { overrides: "x" }]) {
       const r = await fetch(`${base}/options`, {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: { ...headers, "content-type": "application/json" },
         body: JSON.stringify(bad),
       })
       expect(r.status).toBe(500)

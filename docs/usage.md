@@ -24,6 +24,7 @@
 | 选项 | 默认 | 说明 |
 | --- | --- | --- |
 | `registry` | `./registry/registry.yaml` | registry 数据源：本地路径 / http / git spec（见 workflow 文档） |
+| `localRegistry` | 状态目录的 `local-registry.yaml` | 个人注册文件（插件目录外本地路径），false 关闭；缺文件不创建 |
 | `interval` | `900` | 探测周期（秒），最小 60 |
 | `probeTimeoutMs` | `5000` | 全局探测超时；条目可用 `check.timeoutMs` 覆盖 |
 | `concurrency` | `8` | 并发探测数 |
@@ -46,6 +47,16 @@
   "legacy-cli": { "status": "present" }          // 钉死状态，跳过探测
 }
 ```
+
+## 个人 CLI 注册（新增）
+
+页面的 **新增个人 CLI** 可注册本机内部工具；**扫描 npm CLI** 只读包清单与
+bin 元数据，由用户选择并补充说明后才注册/探测。个人文件独立于团队仓库和插件升级。
+团队与个人条目同时展示，个人条目可编辑/删除，均支持本机覆盖。
+例如 npm 维护的 ueb 可用 `kind: npm`、`package: ueb`、`check.bin: ueb` 注册。
+完整操作、冲突规则、安全边界见 [personal-registry.md](personal-registry.md)。
+宿主重载后，新页面会检测会话变化并自动恢复；若有未保存修改则保留输入并
+提示重新加载，不重放写操作。旧版 GUI 页首次升级需重新打开。
 
 ## 三、三条使用路径
 
@@ -173,5 +184,6 @@ magpie library skill router on     # 可选：聚合入口
 
 - 临时关闭：`magpie plugin off team-catalog` → 索引、工具、页面、skill 同步全部停止；
 - 已生成的 skill：`~/.agents/skills/team-*` 可手删；library 里的走 `magpie library skill rm <name>`；
-- 彻底移除：`magpie plugin rm team-catalog`；插件只写 `plugins.json`、`catalog-state.json`
-  与（开启时的）skill 投放点，其余零残留。
+- 移除插件：`magpie plugin rm team-catalog`；不卸载已注册的 CLI，也不删除个人注册文件。
+  插件管理的配置/产物包括 `plugins.json`、状态与 registry 缓存、用户确认保存的
+  `local-registry.yaml`，以及（开启时的）托管 Skill；按需备份/手动清理，见个人注册文档。

@@ -37,11 +37,33 @@
   .ovr { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
   .idx { font-family: ui-monospace, Menlo, monospace; font-size: 12px; color: var(--muted); white-space: pre-wrap; border: 1px dashed var(--border); padding: 8px 10px; margin-bottom: 16px; }
   label { display: inline-flex; gap: 4px; align-items: center; }
+  dialog { max-width: 720px; width: 85vw; background: var(--bg); color: var(--fg); border: 1px solid var(--border); border-radius: 10px; }
+  dialog form { display: grid; gap: 10px; }
+  dialog label { display: grid; grid-template-columns: 155px 1fr; align-items: start; }
+  dialog input[type="text"], dialog textarea, dialog select { width: 100%; box-sizing: border-box; font: inherit; color: var(--fg); background: var(--bg); }
+  dialog textarea { min-height: 70px; }
+  dialog .actions { display: flex; gap: 8px; justify-content: flex-end; }
+  .warning { color: #b45309; white-space: pre-wrap; }
 </style>
 </head>
 <body>
 <h1>团队目录</h1>
-<p class="sub">本机实测态 · 团队声明 registry.yaml · 覆盖仅本机生效</p>
+<p class="sub">团队目录 + 个人注册 · npm 扫描仅提供候选，不自动注册/执行 · 本机覆盖仅本机生效</p>
+<meta name="catalog-token" content="__CATALOG_TOKEN__">
+<meta name="catalog-session" content="__CATALOG_SESSION__">
+<script>
+// 即使 GUI 阻止脚本/初始化失败，也给出诊断，不无限显示“加载中”。
+window.addEventListener("error", event => {
+  const app = document.getElementById("app")
+  if (app) app.textContent = "页面脚本错误：" + (event.message || "未知错误") + "；请重新加载插件页面。"
+})
+window.addEventListener("unhandledrejection", event => {
+  const app = document.getElementById("app")
+  if (app) app.textContent = "页面初始化失败：" + (event.reason?.message || event.reason) + "；请重新加载插件页面。"
+})
+</script>
+<script src="/session-client.js"></script>
+<script src="/catalog-ui.js"></script>
 <div id="app">加载中…</div>
 <script>
 // 由插件的 service 直接服务（127.0.0.1，框架仍是沙箱 opaque origin，
@@ -64,8 +86,32 @@
     }
   } catch {}
 
+  const session = document.querySelector('meta[name="catalog-session"]').content
+  let expired = false
+  let overrideDirty = false
   let draft = {}
   let last = null
+  function recoverSession() {
+    if (expired) return
+    expired = true
+    const bar = document.createElement("div")
+    bar.className = "bar warning"
+    bar.append(document.createTextNode("插件已重载，页面会话已过期。未保存输入仍保留；重新加载后请重新确认操作。"))
+    const reload = document.createElement("button")
+    reload.type = "button"
+    reload.textContent = "重新加载页面"
+    reload.onclick = () => {
+      if ((!overrideDirty && !document.querySelector("dialog form")) || confirm("重新加载将丢弃当前未保存的修改，继续？")) location.reload()
+    }
+    bar.append(reload)
+    document.body.prepend(bar)
+    if (!overrideDirty && !document.querySelector("dialog form")) location.reload()
+  }
+  const api = createCatalogAPI({
+    token: document.querySelector('meta[name="catalog-token"]').content,
+    onExpired: recoverSession,
+  })
+  const manager = createCatalogManager({ api, refresh, notify: text => { msg.textContent = text } })
 
   async function refresh() {
     let view
@@ -88,12 +134,14 @@
       app.append(p)
       return
     }
+    if (view.session && view.session !== session) { recoverSession(); return }
     last = view
     let opts = {}
     try {
       opts = (await (await fetch("/options")).json()) ?? {}
     } catch {}
     draft = structuredClone(opts.overrides ?? {})
+    overrideDirty = false
     render(view)
   }
 
@@ -111,10 +159,17 @@
     bar.append(rerun, save, msg)
     app.append(bar)
 
+    manager.mount(bar)
+    if (view.warnings?.length) {
+      const warning = document.createElement("p")
+      warning.className = "warning"
+      warning.textContent = view.warnings.join("\n")
+      app.append(warning)
+    }
     if (view.index) {
       const pre = document.createElement("div")
       pre.className = "idx"
-      pre.textContent = "当前注入索引：\n" + view.index
+      pre.textContent = "当前目录索引（注入仅在 injectIndex 开启时生效）：\n" + view.index
       app.append(pre)
     }
 
@@ -141,7 +196,7 @@
       const tr = document.createElement("tr")
       const name = document.createElement("td")
       const b = document.createElement("b")
-      b.textContent = tool.id
+      b.textContent = tool.id + (tool.source === "local" ? " · 个人" : " · 团队")
       name.append(b)
       if (tool.name) {
         const span = document.createElement("span")
@@ -167,6 +222,8 @@
       at.textContent = tool.at ? new Date(tool.at).toLocaleString() : ""
       const ovr = document.createElement("td")
       ovr.append(overrideControls(tool))
+      if (tool.path) { const p = document.createElement("code"); p.textContent = tool.path; ovr.append(document.createElement("br"), p) }
+      if (tool.source === "local") manager.rowActions(ovr, tool.id)
       tr.append(name, st, ver, via, at, ovr)
       t.append(tr)
     }
@@ -241,6 +298,7 @@
   }
 
   function setDraft(id, key, value) {
+    overrideDirty = true
     const cur = draft[id] ?? {}
     if (value === undefined) delete cur[key]
     else cur[key] = value
@@ -252,12 +310,12 @@
   async function saveOverrides() {
     msg.textContent = "保存中…（options 变更会触发宿主重载与新探测，页面会自动刷新）"
     try {
-      const r = await fetch("/options", {
+      await api("/options", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ overrides: draft }),
       })
-      if (!r.ok) throw new Error(await r.text())
+      overrideDirty = false
       await pollUntil((t) => t !== (last?.checkedAt ?? null), 60)
       await refresh()
       msg.textContent = "已保存"
@@ -269,7 +327,7 @@
   async function rerunProbe() {
     msg.textContent = "探测中…"
     try {
-      await fetch("/refresh", { method: "POST" })
+      await api("/refresh", { method: "POST" })
       await pollUntil((t) => t !== (last?.checkedAt ?? null), 60)
       msg.textContent = ""
       await refresh()
@@ -288,6 +346,10 @@
       } catch {
         continue // 宿主重启窗口，service 短暂不可达
       }
+      if (view?.session && view.session !== session) {
+        recoverSession()
+        throw new Error("插件已重载，正在恢复页面会话")
+      }
       if (view && !view.error && changed(view.checkedAt ?? null)) {
         last = view
         return view
@@ -296,6 +358,14 @@
     throw new Error("timeout")
   }
 
+  // 只检查公开实例标识；不取新令牌、不重放操作，也不重绘未保存表单。
+  setInterval(async () => {
+    if (expired) return
+    try {
+      const view = await (await fetch("/state")).json()
+      if (view.session && view.session !== session) recoverSession()
+    } catch {} // 宿主重启窗口，下一次再检查
+  }, 5000)
   await refresh()
 })()
 </script>

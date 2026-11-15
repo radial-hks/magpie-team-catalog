@@ -5,6 +5,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync } from "nod
 import { tmpdir } from "node:os"
 import path from "node:path"
 import { execFileSync } from "node:child_process"
+import { pathToFileURL } from "node:url"
 
 import { specKind, loadRegistry, readRegistryDoc } from "../lib/source.mjs"
 
@@ -68,9 +69,11 @@ describe("loadRegistry", () => {
     mkdirSync(path.join(repo, "docs"))
     writeFileSync(path.join(repo, "docs", "fakecli.md"), DOC)
     execFileSync("git", ["init", "-q", "-b", "main"], { cwd: repo })
+    // 隔离用户 core.autocrlf：测试仓库的检出内容在各平台都保持 LF。
+    writeFileSync(path.join(repo, ".gitattributes"), "* text eol=lf\n")
     execFileSync("git", ["add", "."], { cwd: repo })
     execFileSync("git", ["-c", "user.email=t@t", "-c", "user.name=t", "commit", "-q", "-m", "init"], { cwd: repo })
-  })
+  }, 15000)
 
   afterAll(() => {
     httpServer?.stop?.(true)
@@ -95,14 +98,14 @@ describe("loadRegistry", () => {
   })
 
   test("git：git+file:// clone 后可读，二次 load 走刷新分支", async () => {
-    const src = await loadRegistry(`git+file://${path.join(dir, "repo")}#main`, { cacheDir: cache })
+    const src = await loadRegistry(`git+${pathToFileURL(path.join(dir, "repo")).href}#main`, { cacheDir: cache })
     expect(src.kind).toBe("git")
-    expect(src.path.endsWith("registry-repo/registry.yaml")).toBe(true)
+    expect(src.path).toBe(path.join(cache, "registry-repo", "registry.yaml"))
     expect(readFileSync(src.path, "utf8")).toBe(REGISTRY)
-    expect(src.base.endsWith("registry-repo")).toBe(true)
+    expect(src.base).toBe(path.join(cache, "registry-repo"))
     expect(await readRegistryDoc(src.base, "docs/fakecli.md")).toBe(DOC)
     // 再来一轮（已 clone，走 fetch+reset 分支）
-    const again = await loadRegistry(`git+file://${path.join(dir, "repo")}#main`, { cacheDir: cache })
+    const again = await loadRegistry(`git+${pathToFileURL(path.join(dir, "repo")).href}#main`, { cacheDir: cache })
     expect(readFileSync(again.path, "utf8")).toBe(REGISTRY)
   })
 
@@ -111,7 +114,7 @@ describe("loadRegistry", () => {
     writeFileSync(path.join(repo, "registry.yaml"), REGISTRY.replace("fakecli", "fakecli2"))
     execFileSync("git", ["add", "."], { cwd: repo })
     execFileSync("git", ["-c", "user.email=t@t", "-c", "user.name=t", "commit", "-q", "-m", "rename"], { cwd: repo })
-    const src = await loadRegistry(`git+file://${repo}#main`, { cacheDir: cache })
+    const src = await loadRegistry(`git+${pathToFileURL(repo).href}#main`, { cacheDir: cache })
     expect(readFileSync(src.path, "utf8")).toContain("fakecli2")
   })
 

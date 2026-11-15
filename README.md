@@ -7,7 +7,13 @@
 3. **让人能看能配**（窗口页面：浏览目录、按本机覆盖路径 / 禁用条目）；
 4. 可选回退：`injectIndex: true` 时回到网关中间件往 system prompt 注索引的旧形态。
 
-团队声明（应该有什么）与本机实测态（这台机器上真有什么）彻底分离；插件只读、fail-open、可随时关闭无残留。
+新增：**团队目录 + 个人注册层**。页面可增删改个人 CLI、扫描 npm 全局命令候选，
+个人文件保存在插件目录之外，不受团队刷新/插件升级影响。包名可与命令名不同；
+扫描不自动执行候选 CLI。详见 [docs/personal-registry.md](docs/personal-registry.md)。
+
+团队声明（应该有什么）与本机实测态（这台机器上真有什么）彻底分离；探测只读、
+fail-open，不负责安装 CLI。用户确认后可写个人注册/本机覆盖，可随时关闭；
+个人注册文件保留，便于恢复与备份。
 
 > 状态：**M1–M4 代码侧完成，F1–F4 已合入**（F3：skill 落盘取代 system prompt
 > 注入；F4：hand-over 后插件维护 library 副本；均默认关闭）。剩余为团队决策项
@@ -50,16 +56,17 @@ magpie library skill router on          # 或聚合入口按需读取
 | `worker.mjs` | 一轮探测的独立进程：读 registry → 探测 → 写 state → 索引发布 → skill 同步（F3/F4） |
 | `catalog.middleware.js` | 网关中间件（moejs）：`injectIndex: true` 时才注入（默认关，可回退） |
 | `lib/yaml.mjs` | registry.yaml 的最小 YAML 子集解析器（纯函数） |
+| `lib/catalog.mjs` | 团队/个人目录合并、来源标记、个人文件版本校验与原子保存 |
+| `lib/npm-discovery.mjs` | npm 全局包 bin 元数据发现（只读候选，不执行 CLI） |
 | `lib/core.mjs` | registry 校验、平台/用户覆盖合并、状态判定、索引构建（纯函数） |
 | `lib/probe.mjs` | 本机探测：npm/pipx/brew 清单 + PATH/绝对路径，5s 超时并发≤8 |
 | `lib/inject.mjs` | 各协议 system 注入（anthropic/chat/responses/gemini，纯函数） |
 | `lib/cycle.mjs` | 一轮刷新的编排：跨进程锁、state 原子写、经 magpie CLI 发布索引 |
 | `lib/tool.mjs` | `catalog` 工具：搜索（id/名称/用法）与详情（docs 全文 + 按需 probe） |
 | `lib/skill.mjs` | 团队 skill + 本机实测 → SKILL.md 渲染与同步（F3）；hand-over 后分流 library（F4，方案 C） |
-| `lib/service.mjs` | 窗口页的本地 service（127.0.0.1，端口读 options.servicePort）：出主界面 + `/state` `/options` `/refresh`，port 占用时后台重试 |
-| `lib/service.mjs` | 窗口页的本地 service（127.0.0.1，端口读 options.servicePort）：出主界面 + `/state` `/options` `/refresh`，port 占用时后台重试 |
+| `lib/service.mjs` | 窗口页本地 service：状态/覆盖/个人注册/npm 扫描接口、页面会话校验，端口占用时后台重试 |
 | `page/` | 带路页：`index.html` 在外壳 + `boot.js` 交接主题后 `location.replace` 到 service；主界面 `main.html` 由 service 提供 |
-| `test/` | bun test（纯函数全覆盖 + 假 CLI 探测/工具/service 实测，共 65 项） |
+| `test/` | bun test（纯函数全覆盖 + 假 CLI 探测/工具/service 实测，共 107 项） |
 
 测试：`bun test`；沙箱验收步骤见 plan.md M1 的验收标准。
 
@@ -69,7 +76,9 @@ magpie library skill router on          # 或聚合入口按需读取
 | --- | --- |
 | [docs/design.md](docs/design.md) | 详细设计：架构、配置分层、探测状态机、Agent 暴露方式、安全边界 |
 | [docs/plan.md](docs/plan.md) | 分阶段实施计划与各阶段验收标准（含基线后 F1–F4） |
+| [docs/milestone-local-catalog.md](docs/milestone-local-catalog.md) | 本机核心基础阶段交付、验收与后续边界 |
 | [docs/usage.md](docs/usage.md) | 使用说明：选项参考、三条使用路径、工作机部署清单、排障 |
+| [docs/personal-registry.md](docs/personal-registry.md) | 个人注册、npm 候选扫描、ueb 示例、冲突与安全边界 |
 | [docs/registry-schema.md](docs/registry-schema.md) | `registry.yaml` 的字段规范 |
 | [docs/registry-workflow.md](docs/registry-workflow.md) | registry 变更流程：PR 模板、check 命令纪律、min 升级流程、数据源形态 |
 | [registry/registry.example.yaml](registry/registry.example.yaml) | 示例注册表 |
