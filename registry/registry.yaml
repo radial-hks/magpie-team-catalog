@@ -32,6 +32,7 @@ tools:
     check:
       bin: hermes
       version: ["--version"]
+      timeoutMs: 10000  # --version 输出多、偶发超过全局 5s
 
   - id: bun
     kind: binary

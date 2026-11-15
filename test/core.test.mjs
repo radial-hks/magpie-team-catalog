@@ -50,6 +50,15 @@ describe("parseRegistry 校验", () => {
     expect(() => parseRegistry(bad)).toThrow(/check.version/)
   })
 
+  test("check.timeoutMs 必须是正整数", () => {
+    const ok = `version: 1\ntools:\n  - id: x\n    kind: binary\n    install: y\n    check: {bin: x, timeoutMs: 10000}\n`
+    expect(parseRegistry(ok).tools[0].check.timeoutMs).toBe(10000)
+    for (const bad of ["0", "-5", "1.5", '"5000"']) {
+      const text = `version: 1\ntools:\n  - id: x\n    kind: binary\n    install: y\n    check: {bin: x, timeoutMs: ${bad}}\n`
+      expect(() => parseRegistry(text)).toThrow(/check.timeoutMs/)
+    }
+  })
+
   test("projects 需要 vcs 或 url", () => {
     expect(() => parseRegistry(`version: 1\nprojects:\n  - id: x\n`)).toThrow(/vcs or url/)
   })
