@@ -2,13 +2,30 @@
 
 一个 magpie 插件：把团队内部的公共资源——自研 / 公共服务提供的 CLI 工具、GitHub / P4 等项目地址——集中注册在一处，然后：
 
-1. **让每个 Agent 天然知道**本机实际可用的工具（经网关中间件注入索引）；
+1. **让每个 Agent 显式可调**（探测后把团队 skill 落盘到 `~/.agents/skills`，附本机路径/版本，分发交 `magpie library`）；
 2. **让每个 Agent 能查详情**（经 `/mcp/magpie/tools` 的 `catalog` 工具：用法、版本、安装方式、项目地址）;
-3. **让人能看能配**（窗口页面：浏览目录、按本机覆盖路径 / 禁用条目）。
+3. **让人能看能配**（窗口页面：浏览目录、按本机覆盖路径 / 禁用条目）；
+4. 可选回退：`injectIndex: true` 时回到网关中间件往 system prompt 注索引的旧形态。
 
 团队声明（应该有什么）与本机实测态（这台机器上真有什么）彻底分离；插件只读、fail-open、可随时关闭无残留。
 
-> 状态：**M1–M3 已实现，M4 完成代码侧**（http/git registry 拉取 + 变更流程文档）；剩余为团队决策项（内部 npm 发布、双机验证）与 GUI 三项实机确认，见 [docs/plan.md](docs/plan.md)。
+> 状态：**M1–M3 已实现，M4 完成代码侧，F1–F3 已合入**（F3：skill 落盘取代 system prompt 注入，默认关闭）；剩余为团队决策项（内部 npm 发布、双机验证），见 [docs/plan.md](docs/plan.md)。
+
+## skill 落盘（F3，主路径）
+
+`options` 开启（本机默认关闭）后，每轮探测把「团队 skill 仓库」里的
+`skills/<id>/SKILL.md` 与本机实测数据合成，写到 `skillRoot`（默认
+`~/.agents/skills`）——带托管标记，未安装/禁用的工具不生成或移除。
+分发交给 magpie 自己的 library：
+
+```sh
+magpie library skill hand-over <name>   # 搬进 library 记账
+magpie library skill agents <name> …    # 指定给哪些 Agent
+magpie library skill router on          # 或聚合入口按需读取
+```
+
+skill 仓库是独立公共仓库（与 CLI 一起发版），`options.skillsRepo`
+（本地路径或 git spec）拉取，见 [registry-workflow.md](docs/registry-workflow.md)。
 
 ## registry 数据源
 
@@ -25,7 +42,7 @@
 | --- | --- |
 | `index.mjs` | 插件入口（Bun 宿主内）：加载时与按周期 spawn detached worker；提供 `catalog` 工具 |
 | `worker.mjs` | 一轮探测+发布的独立进程：读 registry → 探测 → 写 state → 索引发布到 options |
-| `catalog.middleware.js` | 网关中间件（moejs）：把 options.index 注入每个请求的 system prompt |
+| `catalog.middleware.js` | 网关中间件（moejs）：`injectIndex: true` 时才注入（默认关，可回退） |
 | `lib/yaml.mjs` | registry.yaml 的最小 YAML 子集解析器（纯函数） |
 | `lib/core.mjs` | registry 校验、平台/用户覆盖合并、状态判定、索引构建（纯函数） |
 | `lib/probe.mjs` | 本机探测：npm/pipx/brew 清单 + PATH/绝对路径，5s 超时并发≤8 |

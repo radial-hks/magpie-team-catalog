@@ -154,10 +154,51 @@ which / version 命令都用该条目的预算。
 | --- | --- | --- | --- |
 | F1 | 单条目探测超时 `check.timeoutMs` | 已完成（3163fb3 / 6407e7b） | 无 |
 | F2 | 覆盖保存端到端实测（页面改一行 → 保存 → 索引变化） | 已完成（2026-11-15 实机双向） | 无 |
-| F3 | 注入位置可配（`injectPosition: head\|tail`，design 开放问题 2） | 待评估 | 需实测各 Agent 行为后再定默认值 |
+| F3 | skill 落盘（取代 system prompt 注入；经 magpie library 分发） | 实施中 | 无 |
 | M4-2 | 内部 npm 发布（`@team` scope 通道） | 待团队决策 | 通道/权限定下 |
 | M4-4 | 双机验证（win 机器） | 待团队决策 | win 机器可用时机 |
 | — | registry 切团队共享仓库（现为本机单机形态） | 待内容侧 | 团队仓库址定下 |
+
+## F3 · skill 落盘（取代 system prompt 注入）
+
+**方向变更（2026-11-15）**：不再往每个请求的 system prompt 里塞工具索引——非项目
+任务里注册 CLI/项目清单对模型不友好。改为：插件探测完成后，为每个「本机可用」
+的工具渲染一份 `SKILL.md`，落到 skill 目录，Agent 侧以 skill 形式显式调用。
+
+**公共管理面（实测）**：magpie 自带 `magpie library`（"what the library gives each
+agent: instructions, MCP servers, skills"），提供 `library skill agents / router /
+how link|copy / where agents|shared / hand-over / update`。因此插件**不自己往各家
+Agent 目录写**，只写跨工具共享投放点 `~/.agents/skills/<name>/SKILL.md`，是否进
+library、发给哪些 Agent、链接还是副本，全由 magpie 决定。
+
+**skill 来源 = 独立公共仓库（决策 B）**：与 CLI 一起发版的 skill 仓库，布局
+`skills/<tool-id>/SKILL.md`，通过 `options.skillsRepo` 拉取（复用 source.mjs 的
+本地/git 三形态；http 不支持目录，报错跳过）；registry 条目可用 `skill: <id>`
+映射到不同 skill id（缺省用工具 id）。
+
+**渲染规则**：
+
+- 目标文件 = `<skillRoot>/<skillPrefix><id>/SKILL.md`；frontmatter 的 `name` 强制
+  改写为 前缀+id，`description` 优先用源 frontmatter，否则由 registry 的 name/usage 推；
+- 正文 = 源 skill 正文 + 自动生成的「本机实测」块（绝对路径、版本、via、探测时间，
+  用 `<!-- team-catalog:measured begin/end -->` 定界）+ 「路径失效则用 catalog 工具
+  查最新」的固定提示；
+- 写入带 `<!-- team-catalog:managed -->` 标记，只有带标记的文件/目录才允许覆盖
+  或删除（不碰别人的 skill）；
+- 状态 missing/disabled → 不生成；已生则移除（仅限带标记且名字对应已知工具 id）；
+- 内容未变不写入（幂等，避免无意义的 mtime 变动）。
+
+**middleware**：代码保留（`catalog.middleware.js` + `lib/inject.mjs` + 现有测试
+不动），但改为 `options.injectIndex === true` 才注入——默认关闭，可一键回退。
+
+**验收标准：**
+
+- [ ] 纯函数：frontmatter 解析/改写、measured 块定界、名字前缀、幂等不重写；
+- [ ] 写入/更新/删除三路生效，且**不碰**无标记目录（用临时目录造一个异物验证）；
+- [ ] missing/disabled 的工具不生成 skill，已生成的被移除；
+- [ ] `skillExport` 默认 false：本机（非工作机）零副作用；开启后只在临时 skillRoot 测；
+- [ ] middleware 默认不注入；`injectIndex: true` 时行为与之前一致（现有测试仍绿）；
+- [ ] registry-schema / registry-workflow 记录 `skill` 字段与两个仓库的关系。
 
 ## 工程纪律
 

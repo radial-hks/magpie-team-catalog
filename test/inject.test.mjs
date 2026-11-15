@@ -53,9 +53,16 @@ describe("injectSystem", () => {
 })
 
 describe("catalog.middleware onRequest", () => {
-  test("ctx.options.index 注入并返回新 body（协议权威分派）", () => {
+  test("默认关闭：不开 injectIndex 不动请求（主路径已改为 skill 落盘）", () => {
     const body = { system: "old" }
-    const out = mw.onRequest(body, { options: { index: TEXT }, protocol: "anthropic" })
+    expect(mw.onRequest(body, { options: { index: TEXT }, protocol: "anthropic" })).toBeUndefined()
+    expect(mw.onRequest(body, { options: { index: TEXT, injectIndex: false }, protocol: "anthropic" })).toBeUndefined()
+    expect(body.system).toBe("old")
+  })
+
+  test("injectIndex: true 时注入并返回 body（回退通道）", () => {
+    const body = { system: "old" }
+    const out = mw.onRequest(body, { options: { index: TEXT, injectIndex: true }, protocol: "anthropic" })
     expect(out).toBe(body)
     expect(body.system.startsWith(TEXT)).toBe(true)
   })
