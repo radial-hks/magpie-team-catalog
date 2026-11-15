@@ -1,20 +1,43 @@
 {
   "name": "magpie-team-catalog",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Team and personal CLI catalog with local Git/P4 projects, GUI registration and paginated read-only MCP discovery",
   "type": "module",
   "main": "./index.mjs",
+  "exports": {
+    ".": "./index.mjs",
+    "./server": "./index.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/radial-hks/magpie-team-catalog.git"
+  },
+  "homepage": "https://github.com/radial-hks/magpie-team-catalog#readme",
+  "bugs": { "url": "https://github.com/radial-hks/magpie-team-catalog/issues" },
+  "author": "radial-hks",
+  "scripts": {
+    "test": "bun test",
+    "check:package": "bun scripts/check-package.mjs"
+  },
   "files": [
     "index.mjs",
     "worker.mjs",
     "catalog.middleware.js",
     "lib/",
     "page/",
-    "registry/"
+    "registry/",
+    "docs/",
+    "README.md",
+    "LICENSE"
   ],
-  "keywords": ["magpie", "magpie-plugin", "opencode", "opencode-plugin"],
+  "keywords": ["magpie", "magpie-plugin", "opencode", "opencode-plugin", "team-catalog", "mcp", "cli", "perforce", "git"],
   "license": "MIT",
   "magpie": {
+    "name": "团队目录 · Team Catalog",
+    "summary": {
+      "en": "Discover team and personal CLIs, local Git projects and Perforce workspaces through a GUI and read-only MCP.",
+      "zh": "团队与个人 CLI、本机 Git 项目和 P4 工作区目录：图形注册管理与只读 MCP 查询。"
+    },
     "middleware": "./catalog.middleware.js",
     "options": {
       "registry": "./registry/registry.yaml",

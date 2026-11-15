@@ -39,7 +39,14 @@ CLI 的 `check.version` 必须可信、只读、无交互。安装说明只是�
 
 ### 2.1 安装插件
 
+推荐在 magpie“添加插件”的地址框填写 `github:radial-hks/magpie-team-catalog`，
+或 CLI `magpie plugin add github:radial-hks/magpie-team-catalog`。
+仓库已公开并设置 magpie-plugin topic，不需要本仓库的私有读取凭据。
+市场“非官方 GitHub 插件”显示可能有索引/缓存延迟，不代表官方审核。
+完整分发与权限说明见 [distribution.md](distribution.md)。
+
 需要 magpie；本项目运行在 magpie 的 Bun 插件宿主内。开发测试另需 Bun。
+本地开发可按下面方式安装目录副本：
 
 ```powershell
 # Windows：本地目录插件
@@ -418,6 +425,7 @@ magpie plugin rm magpie-team-catalog
 
 ## 专题文档
 
+- [仓库地址安装与分发](distribution.md)
 - [UI 与配置操作说明](ui-guide.md)
 - [个人 CLI 注册](personal-registry.md)
 - [Git/P4 项目与工作区](local-projects.md)

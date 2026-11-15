@@ -16,10 +16,24 @@ fail-open，不负责安装 CLI。用户确认后可写个人注册/本机覆盖
 个人注册文件保留，便于恢复与备份。
 
 > 状态：**本机核心功能完成**：团队/个人 CLI 注册、Git/P4 项目与工作区管理、
-> GUI 和分页只读 MCP 均已验收；当前 UI 配置优化后共 135 项测试通过。历史核心阶段记录见
+> GUI 和分页只读 MCP 均已验收；当前 UI 与分发配置优化后共 137 项测试通过。历史核心阶段记录见
 > [docs/milestone-projects-mcp.md](docs/milestone-projects-mcp.md)。
 > Skill 导出/提示词注入默认关闭；团队 npm 发布、双机同步、Skill/library 分发实机验收
 > 属于后续部署项，见 [docs/plan.md](docs/plan.md)。使用与部署见 [docs/usage.md](docs/usage.md)。
+
+## 从仓库安装
+
+在 magpie 的“添加插件”地址输入框填：
+
+```text
+github:radial-hks/magpie-team-catalog
+```
+
+CLI：`magpie plugin add github:radial-hks/magpie-team-catalog`。
+源码入口已提交，不需要安装时构建。**仓库已公开，并设置 `magpie-plugin` topic**；
+可使用仓库地址安装。市场“非官方 GitHub 插件”发现受 GitHub 搜索缓存/索引延迟影响，
+不代表官方审核。
+完整地址、私有仓库排障、更新和离线分发见 [docs/distribution.md](docs/distribution.md)。
 
 ## 使用手册
 
@@ -81,7 +95,7 @@ magpie library skill router on          # 或聚合入口按需读取
 | `lib/skill.mjs` | 团队 skill + 本机实测 → SKILL.md 渲染与同步（F3）；hand-over 后分流 library（F4，方案 C） |
 | `lib/service.mjs` | 窗口页本地 service：状态/覆盖/个人注册/npm 扫描接口、页面会话校验，端口占用时后台重试 |
 | `page/` | 带路页：`index.html` 在外壳 + `boot.js` 交接主题后 `location.replace` 到 service；主界面 `main.html` 由 service 提供 |
-| `test/` | bun test（纯函数全覆盖 + 假 CLI 探测/工具/service 实测，共 135 项） |
+| `test/` | bun test（纯函数全覆盖 + 假 CLI 探测/工具/service 实测，共 137 项） |
 
 测试：`bun test`；沙箱验收步骤见 plan.md M1 的验收标准。
 
@@ -93,6 +107,7 @@ magpie library skill router on          # 或聚合入口按需读取
 | [docs/plan.md](docs/plan.md) | 分阶段实施计划与各阶段验收标准（含基线后 F1–F4） |
 | [docs/milestone-local-catalog.md](docs/milestone-local-catalog.md) | 历史本机核心基础阶段交付与验收 |
 | [docs/milestone-projects-mcp.md](docs/milestone-projects-mcp.md) | Git/P4 与 MCP 核心完成阶段验收、兼容性和后续项 |
+| [docs/distribution.md](docs/distribution.md) | 仓库地址安装、私有权限、市场收录要求、更新与包校验 |
 | [docs/ui-guide.md](docs/ui-guide.md) | UI 操作速查：按钮路径、分组/筛选、草稿与安全确认 |
 | [docs/usage.md](docs/usage.md) | 完整使用手册：安装、CLI/Git/P4、配置、MCP、Skill、备份与排障 |
 | [docs/mcp-design.md](docs/mcp-design.md) | MCP 发现/详情/显式检查、分页/筛选/快照与安全边界 |
