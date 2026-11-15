@@ -13,6 +13,16 @@ registry.yaml            唯一声明源
 docs/<id>.md             各条目的详细用法（按需引用）
 ```
 
+**skill 仓库是另一个独立仓库**（决策 B：与 CLI 一起发版，不跟 registry 绑死）：
+
+```
+skills/<id>/SKILL.md     每个工具一份 skill；id 默认等于工具 id
+```
+
+registry 条目用可选 `skill: <id>` 指向不同的 skill id（缺省同工具 id）。插件
+经 `options.skillsRepo`（本地路径或 git spec，http 不支持目录）拉取，与探测
+数据合成为最终 skill 文件；写入前置条件见下（`skillExport` 默认关）。
+
 各机器的插件经 `options.registry` 指向它，三种写法都支持：
 
 | spec | 拉取方式 | 适用 |

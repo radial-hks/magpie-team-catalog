@@ -41,7 +41,10 @@ projects:             # 项目地址条目列表
   registry 里可见；确实慢的条目（冷启动、输出多）再单独放宽，上限建议
   15000——探测是并发跑的，一个条目拖太久会拖慢整轮刷新；
 - `kind` 决定探测方式优先级：npm → `npm ls -g`；pipx → `pipx list --json`；pip → 包名导入检查；brew → `brew list --versions`；binary → PATH / `where` 查找。任一途径命中即 `present`；
-- `install` 永远只是文本，插件不得解析或执行它。
+- `install` 永远只是文本，插件不得解析或执行它；
+- `skill: <id>`（可选）：skill 仓库里的 skill id（缺省用工具 id）。skill 仓库
+  （`options.skillsRepo`）布局 `skills/<id>/SKILL.md`，与 CLI 一起发版；只有
+  `skillExport: true` 且源仓库里有对应文件时才落盘（F3，见 registry-workflow.md）。
 
 ## projects 条目
 
