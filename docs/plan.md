@@ -154,7 +154,8 @@ which / version 命令都用该条目的预算。
 | --- | --- | --- | --- |
 | F1 | 单条目探测超时 `check.timeoutMs` | 已完成（3163fb3 / 6407e7b） | 无 |
 | F2 | 覆盖保存端到端实测（页面改一行 → 保存 → 索引变化） | 已完成（2026-11-15 实机双向） | 无 |
-| F3 | skill 落盘（取代 system prompt 注入；经 magpie library 分发） | 实施中 | 无 |
+| F3 | skill 落盘（取代 system prompt 注入；经 magpie library 分发） | 已完成（2d4a9b6 / abef66b / 1bdf7a5） | 无 |
+| F4 | hand-over 后插件维护 library 副本（方案 C，见下节） | 实施中 | 无 |
 | M4-2 | 内部 npm 发布（`@team` scope 通道） | 待团队决策 | 通道/权限定下 |
 | M4-4 | 双机验证（win 机器） | 待团队决策 | win 机器可用时机 |
 | — | registry 切团队共享仓库（现为本机单机形态） | 待内容侧 | 团队仓库址定下 |
@@ -199,6 +200,40 @@ library、发给哪些 Agent、链接还是副本，全由 magpie 决定。
 - [ ] `skillExport` 默认 false：本机（非工作机）零副作用；开启后只在临时 skillRoot 测；
 - [ ] middleware 默认不注入；`injectIndex: true` 时行为与之前一致（现有测试仍绿）；
 - [ ] registry-schema / registry-workflow 记录 `skill` 字段与两个仓库的关系。
+
+## F4 · skill 分发形态（方案 C，2026-11-15 决策）
+
+**背景**：F3 落盘到 `~/.agents/skills` 只是装卸点。本机实测：读该目录的是 pi /
+hermes 这类工具；Claude Code（`~/.claude/skills`）、Codex（`~/.codex/skills`）不会
+自动看到，要发给这几家只有 magpie library 一条官方路。而 hand-over 把 skill 搬进
+library 后，F3 的持续写入会重建 `~/.agents/skills` 副本形成双写。
+
+**三个备选的裁决**：
+
+- A（不 hand-over，只写共享目录）：Claude/Codex 永远收不到 → 弃；
+- B（hand-over 后关 skillExport）：实测块（本机路径/版本）被冻结，CLI 升级换
+  路径后 skill 越来越假 → 弃——只要 skill 暴露本机路径，就必须有人持续刷新它，
+  而插件是唯一知道真实路径的角色；
+- **C（选定）**：一次 hand-over + 插件改写 library 副本。library 帮助文本明确
+  「installed or edited by hand 后 `magpie library sync` 重写进 agents」是官方
+  预期用法。
+
+**做法**（部署时 + 每轮探测）：
+
+1. 部署：`skillExport: true` → 插件写 `~/.agents/skills/team-<id>/`；
+2. 对每个要分发的 skill 执行一次 `magpie library skill hand-over team-<id>`；
+3. `magpie library skill agents team-<id> claude,codex,…` 按需勾选（或 router on）；
+4. **F4 代码改动**：`syncSkills` 检测 `<library>/<name>` 存在 → 不写
+   `~/.agents/skills`，改写 library 副本（同 managed 标记）；
+5. 内容有变 → spawn `magpie library sync`（fail-open）→ magpie 重推给各 Agent。
+
+**验收标准：**
+
+- [ ] `syncSkills` 接受 libraryDir；library 有副本时写 library、不碰共享目录；
+- [ ] 写入 library 副本仅限带 managed 标记的文件（不碰手工维护的 skill）；
+- [ ] 内容变化时触发 `magpie library sync`（不变化不触发）；
+- [ ] 缺省（木 hand-over、无 library 目录）时行为与 F3 完全一致；
+- [ ] 测试：临时目录模拟 library，覆盖以上四路。
 
 ## 工程纪律
 
