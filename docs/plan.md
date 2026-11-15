@@ -129,6 +129,35 @@ initialize→tools/list→tools/call 流程，与 Agent 侧 MCP 客户端同协�
   （两项均为发布后实测项；拉取机制本身已在沙箱验证：http/git 源改内容后
   下一轮 worker 即拉到新索引。）
 
+## F1 · 单条目探测超时（基线后第一个 feature）
+
+**问题**：`probeTimeoutMs` 是全局一个值（默认 5s）。实测 `hermes --version`
+输出多、偶发超 5s，被掐后版本号静默丢失（state 里只剩 `present` 无 version，
+索引里也看不到版本）。
+
+**做法**：registry 条目的 `check` 增加可选 `timeoutMs`（整数毫秒，默认继承
+全局），探测该条目时用它。schema 校验在 core（必须是正整数），probe 侧
+which / version 命令都用该条目的预算。
+
+**验收标准：**
+
+- [ ] `check.timeoutMs` 合法值解析通过；非数字/非正整数拒绝并报出行号与字段名；
+- [ ] 全局超时小于条目超时时，慢命令仍能读出（测试用 sleep 脚本：全局 200ms
+  掐死 vs 条目 2000ms 读出）；反之全局放宽不影响未声明 timeoutMs 的条目；
+- [ ] `hermes` 条目声明更长超时后，state 与索引里稳定带出版本号；
+- [ ] registry-schema.md 记录该字段与作者纪律。
+
+## 基线后任务清单（2026-11-15 基线 51fdb2b 之后）
+
+| 编号 | 任务 | 状态 | 前置条件 |
+| --- | --- | --- | --- |
+| F1 | 单条目探测超时 `check.timeoutMs` | 实施中 | 无 |
+| F2 | 覆盖保存端到端实测（页面改一行 → 保存 → 索引变化） | 待实测 | 需在窗口里点一次 |
+| F3 | 注入位置可配（`injectPosition: head\|tail`，design 开放问题 2） | 待评估 | 需实测各 Agent 行为后再定默认值 |
+| M4-2 | 内部 npm 发布（`@team` scope 通道） | 待团队决策 | 通道/权限定下 |
+| M4-4 | 双机验证（win 机器） | 待团队决策 | win 机器可用时机 |
+| — | registry 切团队共享仓库（现为本机单机形态） | 待内容侧 | 团队仓库址定下 |
+
 ## 工程纪律
 
 - 每阶段开分支实施（`dev/m1-core` → merge main → `dev/m2-tools` …），阶段开始前把本文件的对应勾选项视为该阶段的验收清单；
