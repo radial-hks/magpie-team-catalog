@@ -83,7 +83,8 @@ initialize→tools/list→tools/call 流程，与 Agent 侧 MCP 客户端同协�
   POST /refresh 触发 worker 重探（删掉假 CLI 后 status 变 missing），CORS 头
   齐全（沙箱 iframe 的 opaque origin 可访问）；`magpie plugin` 列表显示
   `page Team catalog`；
-- [ ] 页面在 magpie 窗口正常渲染（沙盒 iframe、无外部请求）——待实机；
+- [x] 页面在 magpie 窗口正常渲染（实机 2026-11-15：带路页导航 → service 主界面，
+  表格列出全部 4 个工具，均 present）；
 - [ ] 编辑覆盖保存后，下一个请求的索引按新覆盖过滤——机制已验证
   （options.set 写 plugins.json → 宿主重载 → worker 重探测），页面端到端
   待实机；
